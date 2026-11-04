@@ -46,8 +46,9 @@ in the target workspace. Notebooks are bound to the default lakehouse of the ins
 ```text
 Files/PerfScenarios/logs/
 └─ <test_name_prefix>-<model_key>-c<N>-<yyyymmdd-hhmmss>/
-   ├─ <loadtestId>_user_<k>.csv           one row per query executed (start_time, duration, model, thread_id, ...)
+   ├─ <loadtestId>_user_<k>.csv           one row per query executed (start_time, duration, model, thread_id, status, error, ...)
    ├─ summary.json                        one summary of the run, also the exit value of RunLoadTest_v3 (see below)
+   ├─ error.log                           one line per failed query, and the error of a user that could not connect
    └─ thinktimes/<loadtestId>_user_<k>_thinktimes.csv   (only with enable_think_times = true)
 ```
 

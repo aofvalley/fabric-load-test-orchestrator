@@ -19,6 +19,7 @@ to any workspace with **one installer notebook**.
 | All users start at once | Optional **staggered start** (`ramp_up_sec`) and random initial offset (`initial_user_jitter_sec`) |
 | Users hard-coded in a cell | `rls_users` parameter (comma-separated UPNs) |
 | Access token printed in logs | Token **redacted** in console output and `error.log` |
+| A failed query ends the virtual user and loses all its rows | The failed query is a row with `status = error`; the user goes on and its CSV is always written |
 | Manual import of every item | **Installer notebook** + zip: resolves workspace, lakehouse, notebook and pipeline ids for the target workspace and verifies the result |
 | Results only as CSV files and a `display` | Every run ends with **`summary.json`** and returns it as the notebook **exit value** (p50, p95, failed queries, lost users); optional Delta tables `loadtest_runs` and `loadtest_queries` |
 | – | **Analysis notebook** (DuckDB) with nine queries that prove the ramp, the think times and the parallelism |
