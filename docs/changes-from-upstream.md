@@ -15,9 +15,10 @@ Compare them yourself with, for example:
 | Run identifier | `<name>-<timestamp>` | `<name>-c<concurrent_threads>-<timestamp>`, so each ramp level has its own folder |
 | Virtual users | Started together | `start_delay_sec = ramp_up_sec × i / concurrent_threads` is passed to every user (staggered start) |
 | RLS | Users list edited in the code | `rls_users` parameter (comma-separated UPNs, spread across the virtual users) |
-| New parameters | – | `enable_think_times`, `think_time_scale`, `max_think_time_sec`, `think_time_jitter_pct`, `fallback_think_time_sec`, `ramp_up_sec`, `initial_user_jitter_sec`, `rls_users` |
+| New parameters | – | `enable_think_times`, `think_time_scale`, `max_think_time_sec`, `think_time_jitter_pct`, `fallback_think_time_sec`, `ramp_up_sec`, `initial_user_jitter_sec`, `rls_users`, `write_results_to_tables` |
 | Callee | `RunPerfScenario` | `RunPerfScenario_v3` |
 | Result consolidation | Kept | Kept (same polars aggregation cell) |
+| Results for other tools | `display` of a polars frame; `deltalake` imported but not used | `summary.json` per run and the same summary as the notebook **exit value**; optional Delta tables `loadtest_runs` and `loadtest_queries` (`write_results_to_tables`) |
 
 Everything that the original does with `notebookutils.notebook.runMultiple` (one activity per virtual user, DAG concurrency =
 number of users) is kept.

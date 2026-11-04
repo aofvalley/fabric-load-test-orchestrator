@@ -18,6 +18,12 @@ Parameters (first code cell): `LOGS`, `RUN_PREFIX` (= `test_name_prefix` of the 
 | 8 | Latency per level | Mean, p50, p90, p95 and max duration per model and level |
 | 9 | Were the models parallel? | `overlap_s > 0` between models |
 
+## Without the notebook: `summary.json`
+
+Every run folder also has a `summary.json` (the exit value of `RunLoadTest_v3`) with the percentiles of the successful queries,
+the failed queries and the virtual users that were lost. See [architecture.md](architecture.md#run-summary-and-exit-value).
+With `write_results_to_tables = true` the same data is in the Delta tables `loadtest_runs` and `loadtest_queries`.
+
 ## Reading query 8 (latency per level)
 
 `p50` is the typical query, `p90` and `p95` the slow tail, `max` the worst case. When the level grows:
