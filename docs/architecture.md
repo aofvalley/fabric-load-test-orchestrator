@@ -47,8 +47,27 @@ in the target workspace. Notebooks are bound to the default lakehouse of the ins
 Files/PerfScenarios/logs/
 └─ <test_name_prefix>-<model_key>-c<N>-<yyyymmdd-hhmmss>/
    ├─ <loadtestId>_user_<k>.csv           one row per query executed (start_time, duration, model, thread_id, ...)
+   ├─ summary.json                        one summary of the run, also the exit value of RunLoadTest_v3 (see below)
    └─ thinktimes/<loadtestId>_user_<k>_thinktimes.csv   (only with enable_think_times = true)
 ```
+
+## Run summary and exit value
+
+At the end of every run `RunLoadTest_v3` writes `summary.json` in the run folder and exits with the same JSON, so a pipeline
+can read it as `activity('RunLoadTest_v3').output.result.exitValue`:
+
+| Field | Meaning |
+|---|---|
+| `status` | `completed`, `completed_with_errors` (failed queries or lost virtual users) or `failed` (`runMultiple` failed or no results) |
+| `users_with_results`, `missing_users` | Virtual users that wrote a CSV file; the others failed before running any query |
+| `queries`, `failed_queries`, `expected_queries`, `error_rate` | `expected = users × queries per user`; `error_rate = (failed + queries of lost users) / expected` |
+| `mean_s`, `p50_s`, `p90_s`, `p95_s`, `p99_s`, `max_s` | Latency of the successful queries |
+| `qps`, `start_utc`, `end_utc`, `duration_s` | Throughput and time window of the run (UTC, for example to query the Capacity Metrics app) |
+| `error_log_lines`, `run_error` | Lines in `error.log` and the error of `runMultiple`, if any |
+
+When `runMultiple` fails, `summary.json` is still written (with `run_error`) before the notebook fails, so the evidence of
+the users that did finish is kept. With `write_results_to_tables = true` the summary is appended to the Delta table
+`loadtest_runs` and every query to `loadtest_queries` (explicit schemas, `mergeSchema` on).
 
 ## Test strategy
 
@@ -56,7 +75,7 @@ Files/PerfScenarios/logs/
 |---|---|
 | Think-time parser and helpers | Pure unit tests, plus a comparison with the original `load_queries` |
 | `RunPerfScenario_v3` | The real cells are executed with fake `notebookutils`, `sempy` and ADOMD modules |
-| `RunLoadTest_v3` | The real cells are executed with a fake `runMultiple` that checks the DAG it receives |
+| `RunLoadTest_v3` | The real cells are executed with a fake `runMultiple` that checks the DAG it receives; the summary cells run over CSV files written by the real scenario notebook, with a fake Spark for the Delta tables |
 | `AnalyzeLoadTest_v3` | Executed over CSV files produced by the scenario notebook (two models in parallel, two ramp levels) |
 | Installer | Executed against an in-memory fake of the Fabric REST API (dry run, deploy, re-run, overwrite, invalid models, tampered zip, foreign ids) |
 | Package | Hash and leak checks, pipeline/notebook parameter consistency, untouched `upstream/` files |

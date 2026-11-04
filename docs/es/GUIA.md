@@ -12,6 +12,7 @@
 - Usar RLS con `rls_source` (`list`, `file`, `none`) y `rls_scope` (`global`, `per_model`): los UPN pueden ir en el parámetro `rls_users`, en un **archivo de texto** (`rls_users_file`, un UPN por línea) o **por modelo** (`users` / `users_file` dentro de cada elemento de `models`).
 - **Desplegar en cualquier workspace** con un notebook instalador y un zip, sin ids fijos.
 - Analizar los resultados con `AnalyzeLoadTest_v3` (nueve consultas).
+- Consumir los resultados desde otras herramientas: cada ejecución deja `summary.json` (p50, p95, consultas fallidas, usuarios perdidos) y lo devuelve como *exit value* del notebook; con `write_results_to_tables = true` también se añade a las tablas Delta `loadtest_runs` y `loadtest_queries`.
 
 ## Arquitectura
 

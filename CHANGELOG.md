@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0
+
+- `RunLoadTest_v3` writes `summary.json` in every run folder and exits with it (`notebookutils.notebook.exit`): latency
+  percentiles of the successful queries, failed queries, lost virtual users, error rate, throughput and UTC window. A failed
+  `runMultiple` still leaves `summary.json` with the error before the notebook fails.
+- New parameter `write_results_to_tables` (notebook and both pipelines, default `false`): appends each run to the Delta tables
+  `loadtest_runs` and `loadtest_queries` of the default lakehouse, with explicit schemas.
+
 ## 3.3.0
 
 - **RLS identities from a text file.** New switches, in the same spirit as `enable_think_times`:

@@ -26,6 +26,7 @@ When you schedule or trigger a pipeline, names must match **exactly**; Fabric ig
 | `rls_scope` | String | `global` | `global`: the same identities for every model; `per_model`: each model uses its own (`users` / `users_file` of its `models` item) |
 | `rls_users` | String | empty | Global list: comma-separated UPNs for `EffectiveUserName` |
 | `rls_users_file` | String | empty | Global text file with one UPN per line, for example `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
+| `write_results_to_tables` | Bool | `false` | Append each run to the Delta tables `loadtest_runs` and `loadtest_queries` of the default lakehouse |
 
 The notebooks default to think times **off**, which reproduces the original tool; the pipelines default to **on**.
 

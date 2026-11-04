@@ -20,6 +20,7 @@ to any workspace with **one installer notebook**.
 | Users hard-coded in a cell | RLS identities from a **list** (`rls_users`) or a **text file** (`rls_users_file`), for all models or **one per model** (`rls_source`, `rls_scope`) |
 | Access token printed in logs | Token **redacted** in console output and `error.log` |
 | Manual import of every item | **Installer notebook** + zip: resolves workspace, lakehouse, notebook and pipeline ids for the target workspace and verifies the result |
+| Results only as CSV files and a `display` | Every run ends with **`summary.json`** and returns it as the notebook **exit value** (p50, p95, failed queries, lost users); optional Delta tables `loadtest_runs` and `loadtest_queries` |
 | – | **Analysis notebook** (DuckDB) with nine queries that prove the ramp, the think times and the parallelism |
 | – | Test suite that runs the real notebooks against a fake ADOMD/Fabric runtime |
 
@@ -105,6 +106,7 @@ and [RLS identities](docs/parameters.md#rls-identities).
 | `rls_scope` | `global` | `global`: same identities for every model; `per_model`: `users` / `users_file` in each `models` item |
 | `rls_users` | empty | Global list of UPNs to impersonate (`EffectiveUserName`), comma-separated |
 | `rls_users_file` | empty | Global text file with the UPNs, e.g. `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
+| `write_results_to_tables` | `false` | Also append each run to the Delta tables `loadtest_runs` and `loadtest_queries` |
 
 All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md). Field-by-field reference of the
 `PL_PerfTest_MultiModel_v3` pipeline, with ready-to-paste examples: [docs/pipeline-parameters.md](docs/pipeline-parameters.md).
