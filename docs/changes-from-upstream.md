@@ -33,6 +33,8 @@ number of users) is kept.
 | Start | All users immediately | `start_delay_sec` (set by `RunLoadTest_v3`) plus optional random `initial_user_jitter_sec` |
 | Logging | CSV with one row per query | Same CSV, plus `logs/<loadtestId>/thinktimes/*_thinktimes.csv` with the recorded, scaled and applied pause of every action (only when think times are enabled) |
 | Security | The connection string, which carries the access token, is printed and written to `error.log` | The token is replaced by `<redacted-token>` in console output and `error.log` |
+| Failed query | The exception ends the virtual user; its CSV is written only at the end, so **all** its rows are lost | The query is a row with `status = error`, `rows = 0` and the error message (token redacted); a line is added to `error.log`, the connection is reopened if it was closed and the user goes on |
+| CSV writing | After the last iteration | In `finally`: the rows already measured are written even if the user stops early. The `DataReader` is always closed |
 | CSV writing | Default file opening | `newline=''`, so multi-line DAX text keeps a stable CSV format |
 | Code structure | Single flow | Think-time logic is in a cell that depends only on the standard library, so it is unit-tested without Fabric |
 

@@ -7,6 +7,13 @@
   `runMultiple` still leaves `summary.json` with the error before the notebook fails.
 - New parameter `write_results_to_tables` (notebook and both pipelines, default `false`): appends each run to the Delta tables
   `loadtest_runs` and `loadtest_queries` of the default lakehouse, with explicit schemas.
+- `RunPerfScenario_v3`: a failed query no longer ends the virtual user. It is recorded as a row with `status = error`, `rows = 0`
+  and the error message (token redacted), a line is added to `error.log`, the connection is reopened if it was closed and
+  the user continues. New CSV columns `status` and `error`. The CSV is written in `finally`, so partial results survive.
+  The ADOMD `DataReader` is always closed.
+- `AnalyzeLoadTest_v3`: queries 1 and 8 count failed queries; query 8 computes the percentiles over successful queries.
+  Runs without the `status` column are read as successful.
+- `RunLoadTest_v3`: the polars consolidation accepts CSV files with different columns.
 
 ## 3.3.0
 

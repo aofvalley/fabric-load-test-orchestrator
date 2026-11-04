@@ -152,6 +152,37 @@ def test_q8_latency_percentiles_are_ordered(frames):
     assert ((frame["p50_s"] <= frame["p90_s"]) & (frame["p90_s"] <= frame["p95_s"]) & (frame["p95_s"] <= frame["max_s"])).all()
 
 
+def test_q1_and_q8_have_no_failed_queries_in_a_clean_run(frames):
+    assert (frames[0]["failed_queries"] == 0).all()
+    assert (frames[7]["failed_queries"] == 0).all() and (frames[7]["error_rate"] == 0).all()
+
+
+def _write_csv(path, header, rows):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(",".join(header) + "\n" + "".join(",".join(map(str, r)) + "\n" for r in rows), encoding="utf-8")
+
+
+def test_q8_excludes_failed_queries_and_old_runs_without_status_still_work(cells, tmp_path):
+    base = ["loadtest_id", "model", "concurrent_threads", "thread_id", "iteration", "query_number", "action_index",
+            "duration", "start_time"]
+    logs = tmp_path / "logs"
+    new = "ramp-v3-M-c1-20260101-120000"
+    _write_csv(logs / new / f"{new}_user_0.csv", base + ["status", "error"],
+               [[new, "M", 1, 0, 0, 1, 1, 1.0, 100, "ok", ""], [new, "M", 1, 0, 0, 2, 1, 30.0, 102, "error", "timeout"]])
+    shown = []
+    execute_cells([cells[0], cells[1], cells[8]], logs.as_posix(), display=shown.append)
+    q1, q8 = shown
+    assert q1["failed_queries"].iloc[0] == 1
+    assert q8["failed_queries"].iloc[0] == 1 and q8["error_rate"].iloc[0] == 0.5 and q8["max_s"].iloc[0] == 1.0
+
+    old_logs = tmp_path / "old"
+    old = "ramp-v3-M-c1-20250101-120000"
+    _write_csv(old_logs / old / f"{old}_user_0.csv", base, [[old, "M", 1, 0, 0, 1, 1, 2.0, 100]])
+    shown = []
+    execute_cells([cells[0], cells[8]], old_logs.as_posix(), display=shown.append)
+    assert shown[0]["failed_queries"].iloc[0] == 0 and shown[0]["p50_s"].iloc[0] == 2.0
+
+
 def test_q9_the_models_ran_in_parallel(frames):
     frame = frames[8]
     assert len(frame) >= 1 and (frame["overlap_s"] >= 0).all()

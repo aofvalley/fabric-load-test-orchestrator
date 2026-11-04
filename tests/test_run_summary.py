@@ -129,7 +129,9 @@ def test_final_cell_appends_typed_rows_to_the_delta_tables(fake_fabric, tmp_path
     names = [n for n, _ in namespace["QUERY_TABLE_SCHEMA"]]
     first = dict(zip(names, queries["rows"][0]))
     assert isinstance(first["duration"], float) and isinstance(first["thread_id"], int)
-    assert first["status"] is None, "CSV files without a status column give NULL, not an error"
+    assert first["status"] == "ok" and first["error"] is None
+    old = helpers()["table_rows"]([{"duration": "1.5"}], namespace["QUERY_TABLE_SCHEMA"])[0]
+    assert dict(zip(names, old))["status"] is None, "older CSV files without status give NULL, not an error"
     assert "`run_error` string" in runs["schema"]
 
 
