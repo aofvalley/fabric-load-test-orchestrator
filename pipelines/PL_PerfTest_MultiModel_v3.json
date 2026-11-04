@@ -91,6 +91,10 @@
                   "rls_users": {
                     "value": "@pipeline().parameters.rls_users",
                     "type": "Expression"
+                  },
+                  "write_results_to_tables": {
+                    "value": "@pipeline().parameters.write_results_to_tables",
+                    "type": "Expression"
                   }
                 }
               }
@@ -162,6 +166,10 @@
       "rls_users": {
         "type": "String",
         "defaultValue": ""
+      },
+      "write_results_to_tables": {
+        "type": "Bool",
+        "defaultValue": false
       }
     }
   }

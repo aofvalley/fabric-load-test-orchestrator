@@ -20,6 +20,7 @@ to any workspace with **one installer notebook**.
 | Users hard-coded in a cell | `rls_users` parameter (comma-separated UPNs) |
 | Access token printed in logs | Token **redacted** in console output and `error.log` |
 | Manual import of every item | **Installer notebook** + zip: resolves workspace, lakehouse, notebook and pipeline ids for the target workspace and verifies the result |
+| Results only as CSV files and a `display` | Every run ends with **`summary.json`** and returns it as the notebook **exit value** (p50, p95, failed queries, lost users); optional Delta tables `loadtest_runs` and `loadtest_queries` |
 | – | **Analysis notebook** (DuckDB) with nine queries that prove the ramp, the think times and the parallelism |
 | – | Test suite that runs the real notebooks against a fake ADOMD/Fabric runtime |
 
@@ -99,6 +100,7 @@ semantic model. An empty `workspace` means the current workspace. See [samples/m
 | `ramp_up_sec` | `0` | Window over which the users of one level start (`0` = all at once) |
 | `initial_user_jitter_sec` | `0` | Random extra delay (0..N s) before each user's first action |
 | `rls_users` | empty | Comma-separated UPNs to impersonate (`EffectiveUserName`) |
+| `write_results_to_tables` | `false` | Also append each run to the Delta tables `loadtest_runs` and `loadtest_queries` |
 
 All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md).
 

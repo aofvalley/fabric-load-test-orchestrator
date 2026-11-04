@@ -69,6 +69,10 @@
       "rls_users": {
         "type": "String",
         "defaultValue": ""
+      },
+      "write_results_to_tables": {
+        "type": "Bool",
+        "defaultValue": false
       }
     },
     "activities": [
@@ -202,6 +206,13 @@
                       "type": "Expression"
                     },
                     "type": "string"
+                  },
+                  "write_results_to_tables": {
+                    "value": {
+                      "value": "@pipeline().parameters.write_results_to_tables",
+                      "type": "Expression"
+                    },
+                    "type": "bool"
                   }
                 }
               }

@@ -20,6 +20,7 @@ When you schedule or trigger a pipeline, names must match **exactly**; Fabric ig
 | `ramp_up_sec` | Float | `0.0` | Window over which the users of a level start |
 | `initial_user_jitter_sec` | Float | `0.0` | Random extra delay before each user's first action |
 | `rls_users` | String | empty | Comma-separated UPNs for `EffectiveUserName` |
+| `write_results_to_tables` | Bool | `false` | Append each run to the Delta tables `loadtest_runs` and `loadtest_queries` of the default lakehouse |
 
 The notebooks default to think times **off**, which reproduces the original tool; the pipelines default to **on**.
 
