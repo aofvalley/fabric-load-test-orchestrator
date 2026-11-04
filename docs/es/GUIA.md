@@ -11,6 +11,7 @@
 - Escalonar el arranque de los usuarios (`ramp_up_sec`) y añadir un desfase aleatorio inicial (`initial_user_jitter_sec`).
 - Usar RLS con el parámetro `rls_users` (UPN separados por comas).
 - **Desplegar en cualquier workspace** con un notebook instalador y un zip, sin ids fijos.
+- Medir errores de verdad: una consulta que falla (timeout, throttling, RLS) queda como fila con `status = error` y el usuario virtual sigue; su CSV se escribe siempre, aunque el usuario se detenga.
 - Analizar los resultados con `AnalyzeLoadTest_v3` (nueve consultas).
 - Consumir los resultados desde otras herramientas: cada ejecución deja `summary.json` (p50, p95, consultas fallidas, usuarios perdidos) y lo devuelve como *exit value* del notebook; con `write_results_to_tables = true` también se añade a las tablas Delta `loadtest_runs` y `loadtest_queries`.
 
