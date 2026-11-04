@@ -1,0 +1,14 @@
+# Build output
+dist/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local, never commit
+*.local.*
+.env

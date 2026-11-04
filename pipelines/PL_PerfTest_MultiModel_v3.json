@@ -1,0 +1,168 @@
+{
+  "properties": {
+    "description": "Load test v3: parallel ForEach (at most 10 models at a time) over the 'models' parameter. Each model runs the same user ramp and think times through PL_PerfTest_Ramp_v3.",
+    "activities": [
+      {
+        "name": "ForEach_Models",
+        "type": "ForEach",
+        "dependsOn": [],
+        "typeProperties": {
+          "items": {
+            "value": "@pipeline().parameters.models",
+            "type": "Expression"
+          },
+          "isSequential": false,
+          "batchCount": 10,
+          "activities": [
+            {
+              "name": "Run_Ramp_For_Model",
+              "type": "ExecutePipeline",
+              "dependsOn": [],
+              "policy": {
+                "secureInput": false
+              },
+              "typeProperties": {
+                "pipeline": {
+                  "referenceName": "{{PIPELINE:PL_PerfTest_Ramp_v3}}",
+                  "type": "PipelineReference"
+                },
+                "waitOnCompletion": true,
+                "parameters": {
+                  "model_key": {
+                    "value": "@item().model_key",
+                    "type": "Expression"
+                  },
+                  "dataset": {
+                    "value": "@item().dataset",
+                    "type": "Expression"
+                  },
+                  "model_workspace": {
+                    "value": "@item().workspace",
+                    "type": "Expression"
+                  },
+                  "queryfile": {
+                    "value": "@item().queryfile",
+                    "type": "Expression"
+                  },
+                  "test_name_prefix": {
+                    "value": "@pipeline().parameters.test_name_prefix",
+                    "type": "Expression"
+                  },
+                  "ramp_levels": {
+                    "value": "@pipeline().parameters.ramp_levels",
+                    "type": "Expression"
+                  },
+                  "delay_sec": {
+                    "value": "@pipeline().parameters.delay_sec",
+                    "type": "Expression"
+                  },
+                  "iterations": {
+                    "value": "@pipeline().parameters.iterations",
+                    "type": "Expression"
+                  },
+                  "enable_think_times": {
+                    "value": "@pipeline().parameters.enable_think_times",
+                    "type": "Expression"
+                  },
+                  "think_time_scale": {
+                    "value": "@pipeline().parameters.think_time_scale",
+                    "type": "Expression"
+                  },
+                  "max_think_time_sec": {
+                    "value": "@pipeline().parameters.max_think_time_sec",
+                    "type": "Expression"
+                  },
+                  "think_time_jitter_pct": {
+                    "value": "@pipeline().parameters.think_time_jitter_pct",
+                    "type": "Expression"
+                  },
+                  "fallback_think_time_sec": {
+                    "value": "@pipeline().parameters.fallback_think_time_sec",
+                    "type": "Expression"
+                  },
+                  "ramp_up_sec": {
+                    "value": "@pipeline().parameters.ramp_up_sec",
+                    "type": "Expression"
+                  },
+                  "initial_user_jitter_sec": {
+                    "value": "@pipeline().parameters.initial_user_jitter_sec",
+                    "type": "Expression"
+                  },
+                  "rls_users": {
+                    "value": "@pipeline().parameters.rls_users",
+                    "type": "Expression"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "parameters": {
+      "models": {
+        "type": "Array",
+        "defaultValue": [
+          {
+            "model_key": "CHANGE_ME_MODEL_KEY",
+            "dataset": "CHANGE_ME_SEMANTIC_MODEL_NAME",
+            "workspace": "",
+            "queryfile": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData.json"
+          }
+        ]
+      },
+      "test_name_prefix": {
+        "type": "String",
+        "defaultValue": "ramp-v3"
+      },
+      "ramp_levels": {
+        "type": "Array",
+        "defaultValue": [
+          1,
+          5,
+          10
+        ]
+      },
+      "delay_sec": {
+        "type": "Int",
+        "defaultValue": 4
+      },
+      "iterations": {
+        "type": "Int",
+        "defaultValue": 1
+      },
+      "enable_think_times": {
+        "type": "Bool",
+        "defaultValue": true
+      },
+      "think_time_scale": {
+        "type": "Float",
+        "defaultValue": 1.0
+      },
+      "max_think_time_sec": {
+        "type": "Float",
+        "defaultValue": 60.0
+      },
+      "think_time_jitter_pct": {
+        "type": "Float",
+        "defaultValue": 0.1
+      },
+      "fallback_think_time_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "ramp_up_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "initial_user_jitter_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "rls_users": {
+        "type": "String",
+        "defaultValue": ""
+      }
+    }
+  }
+}

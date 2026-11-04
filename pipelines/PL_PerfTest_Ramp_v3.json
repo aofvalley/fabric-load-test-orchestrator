@@ -1,0 +1,214 @@
+{
+  "properties": {
+    "description": "One semantic model: ramp of concurrent users (sequential ForEach) over the RunLoadTest_v3 notebook. Invoked by PL_PerfTest_MultiModel_v3, once per model.",
+    "parameters": {
+      "model_key": {
+        "type": "String",
+        "defaultValue": "CHANGE_ME_MODEL_KEY"
+      },
+      "dataset": {
+        "type": "String",
+        "defaultValue": "CHANGE_ME_SEMANTIC_MODEL_NAME"
+      },
+      "model_workspace": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "queryfile": {
+        "type": "String",
+        "defaultValue": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData.json"
+      },
+      "test_name_prefix": {
+        "type": "String",
+        "defaultValue": "ramp-v3"
+      },
+      "ramp_levels": {
+        "type": "Array",
+        "defaultValue": [
+          1,
+          5,
+          10
+        ]
+      },
+      "delay_sec": {
+        "type": "Int",
+        "defaultValue": 4
+      },
+      "iterations": {
+        "type": "Int",
+        "defaultValue": 1
+      },
+      "enable_think_times": {
+        "type": "Bool",
+        "defaultValue": true
+      },
+      "think_time_scale": {
+        "type": "Float",
+        "defaultValue": 1.0
+      },
+      "max_think_time_sec": {
+        "type": "Float",
+        "defaultValue": 60.0
+      },
+      "think_time_jitter_pct": {
+        "type": "Float",
+        "defaultValue": 0.1
+      },
+      "fallback_think_time_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "ramp_up_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "initial_user_jitter_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "rls_users": {
+        "type": "String",
+        "defaultValue": ""
+      }
+    },
+    "activities": [
+      {
+        "name": "ForEach_Ramp",
+        "type": "ForEach",
+        "dependsOn": [],
+        "typeProperties": {
+          "items": {
+            "value": "@pipeline().parameters.ramp_levels",
+            "type": "Expression"
+          },
+          "isSequential": true,
+          "activities": [
+            {
+              "name": "RunLoadTest_v3",
+              "type": "TridentNotebook",
+              "dependsOn": [],
+              "policy": {
+                "timeout": "0.12:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureOutput": false,
+                "secureInput": false
+              },
+              "typeProperties": {
+                "notebookId": "{{NOTEBOOK:RunLoadTest_v3}}",
+                "workspaceId": "{{WORKSPACE_ID}}",
+                "parameters": {
+                  "concurrent_threads": {
+                    "value": {
+                      "value": "@item()",
+                      "type": "Expression"
+                    },
+                    "type": "int"
+                  },
+                  "load_test_name": {
+                    "value": {
+                      "value": "@concat(pipeline().parameters.test_name_prefix,'-',pipeline().parameters.model_key)",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "dataset": {
+                    "value": {
+                      "value": "@pipeline().parameters.dataset",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "workspace": {
+                    "value": {
+                      "value": "@pipeline().parameters.model_workspace",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "queryfile": {
+                    "value": {
+                      "value": "@pipeline().parameters.queryfile",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "delay_sec": {
+                    "value": {
+                      "value": "@pipeline().parameters.delay_sec",
+                      "type": "Expression"
+                    },
+                    "type": "int"
+                  },
+                  "iterations": {
+                    "value": {
+                      "value": "@pipeline().parameters.iterations",
+                      "type": "Expression"
+                    },
+                    "type": "int"
+                  },
+                  "enable_think_times": {
+                    "value": {
+                      "value": "@pipeline().parameters.enable_think_times",
+                      "type": "Expression"
+                    },
+                    "type": "bool"
+                  },
+                  "think_time_scale": {
+                    "value": {
+                      "value": "@pipeline().parameters.think_time_scale",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "max_think_time_sec": {
+                    "value": {
+                      "value": "@pipeline().parameters.max_think_time_sec",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "think_time_jitter_pct": {
+                    "value": {
+                      "value": "@pipeline().parameters.think_time_jitter_pct",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "fallback_think_time_sec": {
+                    "value": {
+                      "value": "@pipeline().parameters.fallback_think_time_sec",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "ramp_up_sec": {
+                    "value": {
+                      "value": "@pipeline().parameters.ramp_up_sec",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "initial_user_jitter_sec": {
+                    "value": {
+                      "value": "@pipeline().parameters.initial_user_jitter_sec",
+                      "type": "Expression"
+                    },
+                    "type": "float"
+                  },
+                  "rls_users": {
+                    "value": {
+                      "value": "@pipeline().parameters.rls_users",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

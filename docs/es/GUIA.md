@@ -1,0 +1,67 @@
+# Guía de uso (español)
+
+> Resumen en español del repositorio. La documentación completa está en inglés en [../../README.md](../../README.md) y en [../](..).
+> Proyecto no oficial, derivado de **FabricLoadTestTool** de [`microsoft/fabric-toolbox`](https://github.com/microsoft/fabric-toolbox).
+
+## Qué permite hacer
+
+- Probar **varios modelos semánticos en paralelo** con un pipeline padre (`PL_PerfTest_MultiModel_v3`).
+- Para cada modelo, ejecutar una **rampa de usuarios concurrentes** de forma **secuencial** (por ejemplo 6, 20, 60, 100, 200, 300) con un pipeline hijo (`PL_PerfTest_Ramp_v3`). El pipeline pasa `concurrent_threads` al notebook en tiempo de ejecución.
+- Reproducir los **think times** (pausas entre acciones del usuario) grabados con Performance Analyzer.
+- Escalonar el arranque de los usuarios (`ramp_up_sec`) y añadir un desfase aleatorio inicial (`initial_user_jitter_sec`).
+- Usar RLS con el parámetro `rls_users` (UPN separados por comas).
+- **Desplegar en cualquier workspace** con un notebook instalador y un zip, sin ids fijos.
+- Analizar los resultados con `AnalyzeLoadTest_v3` (nueve consultas).
+
+## Arquitectura
+
+```text
+PL_PerfTest_MultiModel_v3
+└─ ForEach_Models (paralelo, máx. 10)          un elemento por modelo semántico
+   └─ ExecutePipeline → PL_PerfTest_Ramp_v3
+      └─ ForEach_Ramp (secuencial)              un elemento por nivel
+         └─ Notebook RunLoadTest_v3             concurrent_threads = @item()
+            └─ runMultiple → RunPerfScenario_v3 × N usuarios virtuales
+```
+
+Son dos pipelines porque Fabric no permite un `ForEach` dentro de otro `ForEach`.
+
+## Despliegue
+
+1. Descarga `FabricLoadTest_v3_package.zip` y `Setup_LoadTest_v3.ipynb` de *Releases* (o ejecuta `python tools/build_package.py`).
+2. Importa `Setup_LoadTest_v3.ipynb` en el workspace destino y asócialo a un **lakehouse del mismo workspace** como lakehouse predeterminado.
+3. Sube el zip a `Files/deploy/` del lakehouse.
+4. En la celda *Parameters* define `MODELS` (o déjalo en `None`) y ejecuta primero con `DRY_RUN = True` y después con `DRY_RUN = False`.
+5. Sube un JSON de Performance Analyzer por modelo a `Files/PerfScenarios/Queries/`.
+6. Abre `PL_PerfTest_MultiModel_v3`, pulsa *Run* y rellena `models`. La rampa por defecto es `[1, 5, 10]`; para una prueba real usa `[6, 20, 60, 100, 200, 300]`.
+
+Requisitos: endpoint de lectura XMLA habilitado en la capacidad y permisos de lectura y *build* sobre cada modelo.
+
+## Parámetro `models`
+
+```json
+[
+  {"model_key": "VentasA", "dataset": "Ventas A", "workspace": "",
+   "queryfile": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData_VentasA.json"}
+]
+```
+
+- `model_key`: etiqueta corta y única (letras, dígitos, `-` y `_`), forma parte del nombre de las carpetas de resultados.
+- `dataset`: nombre **exacto** del modelo semántico.
+- `workspace`: vacío = el workspace actual.
+
+## Parámetros de think times y rampa
+
+| Parámetro | Efecto |
+|---|---|
+| `think_time_scale` | Multiplica cada pausa grabada (`1.0` ritmo real, `0.5` el doble de rápido, `0` sin pausas) |
+| `max_think_time_sec` | Tope de una pausa individual (se aplica antes del jitter) |
+| `think_time_jitter_pct` | Variación aleatoria de cada pausa (`0.1` = ±10 %) para que los usuarios no vayan sincronizados |
+| `ramp_up_sec` | Ventana en la que arrancan los usuarios de un nivel: el usuario *i* de *N* espera `ramp_up_sec × i / N` |
+| `initial_user_jitter_sec` | Espera aleatoria adicional (0..N s) antes de la primera acción de cada usuario |
+| `delay_sec` | Pausa entre iteraciones (con think times activos ya no se aplica tras cada consulta) |
+
+## Pruebas y autoría
+
+`pytest` ejecuta los notebooks reales contra entornos simulados. Los archivos originales sin modificar están en [`upstream/`](../../upstream).
+Licencia MIT; véase [../../NOTICE.md](../../NOTICE.md).

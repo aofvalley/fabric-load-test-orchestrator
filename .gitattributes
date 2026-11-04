@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.ipynb text eol=lf
+*.zip binary
+
+# The upstream originals must stay byte-for-byte identical to the files published in microsoft/fabric-toolbox.
+upstream/** -text
