@@ -214,6 +214,10 @@
                     },
                     "type": "bool"
                   }
+                },
+                "sessionTag": {
+                  "value": "@concat('loadtest-', pipeline().parameters.model_key)",
+                  "type": "Expression"
                 }
               }
             }
