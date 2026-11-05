@@ -216,7 +216,7 @@
                   }
                 },
                 "sessionTag": {
-                  "value": "@concat('loadtest-', pipeline().parameters.model_key)",
+                  "value": "@concat('loadtest_', replace(pipeline().parameters.model_key, '-', '_'))",
                   "type": "Expression"
                 }
               }
