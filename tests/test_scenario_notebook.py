@@ -42,7 +42,7 @@ def test_with_think_times_disabled_the_original_behaviour_is_kept(fake_fabric, t
     assert [int(r["query_number"]) for r in rows] == list(range(1, QUERIES_IN_SAMPLE + 1))
     assert not think.exists(), "no think-time file is written when the feature is disabled"
     assert all(float(r["applied_think_time_sec"]) == 0 for r in rows)
-    assert SECRET_TOKEN not in printed and "<redacted-token>" in printed
+    assert SECRET_TOKEN not in printed and "Initial Catalog=Sales" in printed
 
 
 def test_think_times_are_applied_once_per_action_and_logged(fake_fabric, tmp_path):
@@ -115,3 +115,51 @@ def test_a_failure_is_logged_without_the_token_and_re_raised(fake_fabric, tmp_pa
         run(tmp_path, "run-f", iterations=1, delay_sec=0)
     error_log = (tmp_path / "Files" / "PerfScenarios" / "logs" / "run-f" / "error.log").read_text()
     assert "boom" in error_log and SECRET_TOKEN not in error_log
+
+
+def _capture_connections(monkeypatch):
+    import sys
+    adomd = sys.modules["Microsoft.AnalysisServices.AdomdClient"]
+    opened = []
+
+    class Recording(adomd.AdomdConnection):
+        AccessToken = None
+        OnAccessTokenExpired = None
+
+        def Open(self):  # noqa: N802
+            opened.append(self)
+
+    monkeypatch.setattr(adomd, "AdomdConnection", Recording)
+    return opened
+
+
+def test_without_sempy_the_token_goes_in_the_connection_string(fake_fabric, tmp_path, monkeypatch):
+    opened = _capture_connections(monkeypatch)
+    run(tmp_path, "run-g", iterations=1, delay_sec=0)
+    assert opened and opened[0].connection_string.endswith(f"password={SECRET_TOKEN};")
+
+
+def test_with_sempy_the_connection_uses_its_access_token_and_refresh(fake_fabric, tmp_path, monkeypatch):
+    import sys
+    import types
+    opened = _capture_connections(monkeypatch)
+    calls = []
+
+    def refresh_tom_access_token(current, credential=None):
+        calls.append(credential)
+        return "SEMPY-TOKEN"
+
+    utils = types.ModuleType("sempy.fabric._client._utils")
+    utils.refresh_tom_access_token = refresh_tom_access_token
+    client = types.ModuleType("sempy.fabric._client")
+    system = types.ModuleType("System")
+    system.Func = type("Func", (), {"__class_getitem__": classmethod(lambda cls, _: (lambda f: f))})
+    analysis = sys.modules["Microsoft.AnalysisServices"]
+    monkeypatch.setattr(analysis, "AccessToken", object, raising=False)
+    for name, module in {"sempy.fabric._client": client, "sempy.fabric._client._utils": utils, "System": system}.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    run(tmp_path, "run-h", iterations=1, delay_sec=0)
+    con = opened[0]
+    assert "password=" not in con.connection_string.lower()
+    assert con.AccessToken == "SEMPY-TOKEN" and calls == [None]
+    assert con.OnAccessTokenExpired("old") == "SEMPY-TOKEN"
