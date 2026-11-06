@@ -1,7 +1,8 @@
 # Caso de éxito: Ventas Retail
 
 Un modelo semántico listo para producción, con su informe y su recorrido de navegación, para enseñar el gate con un
-resultado apto. Todo se crea en el workspace del gate, dentro de la carpeta **Ventas Retail**:
+resultado apto. Se crea en el workspace que indiques, dentro de la carpeta **Ventas Retail**. Ponlo en **otra capacidad**
+que la del workspace del gate: así el CU del generador de carga no se mezcla con el del modelo, igual que en producción.
 
 | Item | Qué es |
 |---|---|
@@ -28,23 +29,26 @@ Necesita Python x64 con `numpy`, `pandas`, `pyarrow`, `deltalake` y `httpx` (en 
 `uv venv .venv-demo --python cpython-3.12-windows-x86_64-none`).
 
 ```powershell
-python demo\caso-exito\build.py --workspace-id <workspace del gate> --gate-lakehouse-id <lh_gate> --subscription <sub>
+python demo\caso-exito\build.py --workspace-id <workspace del modelo> --gate-workspace-id <workspace del gate> `
+  --gate-lakehouse-id <lh_gate> --subscription <sub>
 # por pasos: --only data | vorder | model | report | scenario
 ```
+
+O, más sencillo, `deploy/deploy.ps1 ... -SuccessCase -SuccessCaseWorkspace <workspace del modelo>`.
 
 Después, en la app: modelo **Ventas Retail**, «Reutilizar un escenario ya subido» con `Ventas_Retail_informe.json`,
 rampa 6, 20 y 60, y «Lanzar gate». O por CLI con `smgate run`.
 
-## Resultado (tenant dev, F4, 5 de noviembre de 2026)
+## Resultado (tenant dev, 6 de noviembre de 2026)
 
-**PASS, promocionable**, en 23 minutos de punta a punta:
+**PASS, promocionable**, en 26 minutos de punta a punta, con el gate en una F4 y el modelo en una F8:
 
 | Área | Resultado |
 |---|---|
 | Buenas prácticas | 0 errores, 0 avisos, ninguna regla bloqueante |
-| Test de carga, rampa 6, 20 y 60 | 1.634 consultas sin errores; p95 0,12 s, 0,10 s y 0,70 s (SLO 4 s); sostiene los 60 usuarios objetivo |
-| Capacity Metrics | Pico de utilización 19,5 %, sin throttling |
+| Test de carga, rampa 6, 20 y 60 | 1.634 consultas sin errores; p95 0,09 s, 0,10 s y 0,88 s (SLO 4 s); sostiene los 60 usuarios objetivo |
+| Capacity Metrics | Pico de utilización 37,5 % de la F8, sin throttling; 0 % de CU del generador en la capacidad del modelo |
 
 Dos comprobaciones salen como omitidas, y es lo correcto: el tamaño VertiPaq (sempy no informa tamaños de un modelo
-Direct Lake aunque la revisión lo caliente) y las operaciones del modelo en la tabla diaria de Capacity Metrics, que
-llega horas después del test.
+Direct Lake aunque la revisión lo caliente) y las operaciones del modelo por item, que Capacity Metrics publica con
+más retraso que la utilización.

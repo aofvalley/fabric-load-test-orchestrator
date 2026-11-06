@@ -8,7 +8,8 @@
     orchestrator  Fabric Load Test Orchestrator en el workspace de herramientas (notebooks y pipelines).
     gate          Notebooks NB_Gate_*, pipeline PL_PromotionGate, wheel y gate.yaml en el mismo workspace.
     app           Registro SPA de Entra, .env de la app y `rayfin up` (build, hosting estático y tabla del historial).
-  Con -SuccessCase añade el caso de éxito Ventas Retail (lakehouse, modelo Direct Lake, informe y escenario).
+  Con -SuccessCase añade el caso de éxito Ventas Retail (lakehouse, modelo Direct Lake, informe y escenario) en
+  -SuccessCaseWorkspace, mejor en otra capacidad que la del gate (por defecto, el workspace de herramientas).
   El orquestador se instala desde el repo que contiene el gate (promotion-gate/ dentro de fabric-load-test-orchestrator);
   si el gate está en otro sitio, indica el clon con -OrchestratorRepo.
 
@@ -31,6 +32,7 @@ param(
   [string]$SpaDisplayName = 'promotion-gate-app',
   [ValidateSet('orchestrator', 'gate', 'app')] [string[]]$Steps = @('orchestrator', 'gate', 'app'),
   [switch]$SuccessCase,
+  [string]$SuccessCaseWorkspace,
   [string]$OrchestratorRepo,
   [string]$Subscription,
   [string]$Tenant,
@@ -260,7 +262,9 @@ if ('app' -in $Steps) {
 
 if ($SuccessCase) {
   Step 'Caso de éxito Ventas Retail'
-  if ($WhatIf) { Plan "lakehouse, modelo Direct Lake, informe y escenario de Ventas Retail en $($tools.displayName)" }
+  $modelWs = if ($SuccessCaseWorkspace) { Resolve-Workspace $SuccessCaseWorkspace } else { $tools }
+  if ($modelWs.id -eq $tools.id) { Write-Warning 'El modelo compartirá capacidad con el generador de carga: el gate lo marcará como observación.' }
+  if ($WhatIf) { Plan "lakehouse, modelo Direct Lake e informe de Ventas Retail en $($modelWs.displayName) ($($modelWs.sku)); escenario en $LakehouseName" }
   else {
     $demoVenv = Join-Path $Root '.venv-demo'
     $demoPy = if ($IsWin) { Join-Path $demoVenv 'Scripts' 'python.exe' } else { Join-Path $demoVenv 'bin' 'python' }
@@ -277,7 +281,7 @@ if ($SuccessCase) {
     }
     $scope = if ($Subscription) { @('--subscription', $Subscription) } elseif ($Tenant) { @('--tenant', $Tenant) } else { @() }
     $env:PYTHONIOENCODING = 'utf-8'
-    & $demoPy (Join-Path $Root 'demo' 'caso-exito' 'build.py') --workspace-id $tools.id --gate-lakehouse-id $lakehouseId @scope
+    & $demoPy (Join-Path $Root 'demo' 'caso-exito' 'build.py') --workspace-id $modelWs.id --gate-workspace-id $tools.id --gate-lakehouse-id $lakehouseId @scope
     if ($LASTEXITCODE) { throw 'El caso de éxito falló.' }
   }
 }

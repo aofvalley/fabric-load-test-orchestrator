@@ -10,7 +10,11 @@ Crea en el workspace del gate una carpeta «Ventas Retail» con:
   gate), con las consultas DAX de sus visuales y pausas entre clics. Todas se validan contra el modelo antes de subirlo.
 
 Uso (Python x64 con numpy, pandas, pyarrow, deltalake y httpx):
-    python demo/caso-exito/build.py --workspace-id <gate ws> --gate-lakehouse-id <lh_gate> [--subscription <sub>] [--only data|model|report|scenario]
+    python demo/caso-exito/build.py --workspace-id <ws del modelo> --gate-lakehouse-id <lh_gate> [--gate-workspace-id <ws del gate>]
+           [--subscription <sub>] [--only data|vorder|model|report|scenario]
+
+El modelo debería vivir en otra capacidad que el workspace del gate: si comparten capacidad, los notebooks del
+generador de carga cuentan en la misma capacidad y el gate lo marca como observación.
 """
 from __future__ import annotations
 
@@ -619,6 +623,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--workspace-id", required=True)
     ap.add_argument("--gate-lakehouse-id", required=True, help="Lakehouse del gate (lh_gate), donde se sube el escenario")
+    ap.add_argument("--gate-workspace-id", help="Workspace del gate, si no es el del modelo")
     ap.add_argument("--subscription")
     ap.add_argument("--tenant")
     ap.add_argument("--rows", type=int, default=2_000_000)
@@ -654,7 +659,7 @@ def main() -> None:
         validate(api, ws, mid, sc)
         text = json.dumps(sc, ensure_ascii=False, indent=1)
         (HERE / SCENARIO).write_text(text, encoding="utf-8")
-        url = f"https://onelake.dfs.fabric.microsoft.com/{ws}/{a.gate_lakehouse_id}/Files/PerfScenarios/Queries/{SCENARIO}"
+        url = f"https://onelake.dfs.fabric.microsoft.com/{a.gate_workspace_id or ws}/{a.gate_lakehouse_id}/Files/PerfScenarios/Queries/{SCENARIO}"
         h = {"x-ms-version": "2023-11-03"}
         data = text.encode("utf-8")
         st = "https://storage.azure.com"

@@ -126,3 +126,45 @@ def test_model_missing_from_stale_daily_table_is_pending_not_warning(capacity_ok
     assert found["capacity.model_found"] == SKIP
     fresh = {**stale, "tooling": {**stale["tooling"], "found": True}}
     assert {c.id: c.status for c in evaluate_capacity(fresh, cfg)}["capacity.model_found"] == WARN
+
+
+def test_timepoints_in_the_app_local_time_are_converted_to_utc():
+    """La app instalada con UTC+2 etiqueta 14:05 lo que en UTC son las 12:05."""
+    from promotion_gate.capacity import parse_utc_offset
+    offset = parse_utc_offset([{"Latest Summary Timestamp[endTime]": "2026-11-06T12:16:30",
+                                "Latest Summary Timestamp[UTC Offset]": 2.0}])
+    assert offset == 2.0
+    tps = [{"Timepoints[Timepoint]": "2026-11-06T14:05:00", "[B_P]": 0.3, "[I_P]": 0.1},
+           {"Timepoints[Timepoint]": "2026-11-06T12:05:00", "[B_P]": 0.0, "[I_P]": 0.0}]
+    window = {"start_utc": "2026-11-06T12:02:00Z", "end_utc": "2026-11-06T12:10:00Z"}
+    m = analyze(tps, [], window, "m", utc_offset_hours=offset)
+    assert m["timepoints_in_window"] == 1 and m["peak_utilization_pct"] == 40.0
+    assert m["latest_timepoint_utc"].startswith("2026-11-06T12:05") and m["utc_offset_hours"] == 2.0
+    assert analyze(tps, [], window, "m")["peak_utilization_pct"] == 0.0
+
+
+def test_days_follow_the_app_local_time():
+    from promotion_gate.capacity import parse_utc_offset
+    assert days_in_window("2026-11-06T23:00:00Z", "2026-11-06T23:30:00Z", 2.0) == [date(2026, 11, 7)]
+    assert days_in_window("2026-11-06T23:00:00Z", "2026-11-06T23:30:00Z") == [date(2026, 11, 6)]
+    assert parse_utc_offset([]) == 0.0
+
+
+def test_hourly_operations_query_covers_the_test_hours_in_local_time():
+    from datetime import datetime
+    from promotion_gate.capacity import item_operation_hour_query
+    dax = item_operation_hour_query("v53", "11111111-2222-3333-4444-555555555555",
+                                    datetime(2026, 11, 6, 14, 2), datetime(2026, 11, 6, 15, 10))
+    assert "'Metrics By Item Operation And Hour'[Datetime] >= DATE(2026, 11, 6) + TIME(14, 0, 0)" in dax
+    assert "<= DATE(2026, 11, 6) + TIME(15, 0, 0)" in dax
+    assert '"C_FO", SUM(' in dax and "MPARAMETER 'CapacitiesList'" in dax
+    with pytest.raises(ValueError):
+        item_operation_hour_query("v47", "11111111-2222-3333-4444-555555555555", datetime(2026, 1, 1), datetime(2026, 1, 1))
+
+
+def test_operations_scope_is_reported(capacity_ok):
+    cfg = load_config()
+    hour = {**capacity_ok, "operations_scope": "hour",
+            "model": {**capacity_ok["model"], "found": True, "failed_operations": 0, "rejected_operations": 0}}
+    detail = {c.id: c.detail for c in evaluate_capacity(hour, cfg)}
+    assert "horas del test" in detail["capacity.model_operations"]

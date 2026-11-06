@@ -110,6 +110,32 @@ VAR __DS0Core =
 EVALUATE FILTER(__DS0Core, [S_CU] > 0)"""
 
 
+def item_operation_hour_query(version: str, capacity_id: str, start_local: datetime, end_local: datetime) -> str:
+    """Operaciones por item en las horas del test (v53, tabla horaria, hora local de la app). Más preciso que el día."""
+    if version != "v53":
+        raise ValueError("La tabla horaria por item solo se usa con Capacity Metrics v53")
+    cap = _check_guid(capacity_id)
+    t = "'Metrics By Item Operation And Hour'"
+    lo, hi = start_local.replace(minute=0, second=0, microsecond=0), end_local.replace(minute=0, second=0, microsecond=0)
+    at = lambda d: f"DATE({d.year}, {d.month}, {d.day}) + TIME({d.hour}, 0, 0)"
+    sums = ",\n        ".join(f'"{k}", SUM({t}[{c}])' for k, c in (
+        ("S_Dur", "Duration (s)"), ("S_CU", "CU (s)"), ("TH_M", "Throttling (min)"), ("C_RO", "Rejected operations"),
+        ("C_O", "Operations"), ("C_FO", "Failed operations")))
+    return f"""DEFINE
+    {_mparam(version, cap)}
+VAR __Hours = FILTER(ALL({t}[Datetime]), {t}[Datetime] >= {at(lo)} && {t}[Datetime] <= {at(hi)})
+VAR __DS0Core =
+    SUMMARIZECOLUMNS(
+        {t}[Workspace Id],
+        {t}[Item Id],
+        {t}[Operation name],
+        __Hours,
+        FILTER(Capacities, Capacities[Capacity Id] = "{cap}"),
+        {sums}
+    )
+EVALUATE FILTER(__DS0Core, [S_CU] > 0)"""
+
+
 def detect_version(evaluate: Callable[[str], Any]) -> str:
     """`evaluate(dax)` lanza excepción si la consulta no es válida para el modelo."""
     for version, probe in VERSION_PROBES:
@@ -155,11 +181,34 @@ def _to_dt(value: Any) -> datetime | None:
 
 to_dt = _to_dt
 
+# La app guarda los timepoints en la hora local de su parámetro UTC_offset (el de la instalación) y expone ese desfase
+# en 'Latest Summary Timestamp'[UTC Offset]. La ventana del test va en UTC: sin convertir se mira otra hora del día.
+UTC_OFFSET_QUERY = "EVALUATE 'Latest Summary Timestamp'"
 
-def days_in_window(start_utc: str, end_utc: str) -> list[date]:
+
+def parse_utc_offset(rows: list[dict[str, Any]] | None) -> float:
+    """Horas de desfase de los timepoints respecto a UTC; 0 si la versión de la app no lo expone."""
+    for r in normalize_rows(rows or []):
+        for k, v in r.items():
+            if k.replace(" ", "").lower() == "utcoffset" and v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return 0.0
+    return 0.0
+
+
+def timepoint_utc(value: Any, utc_offset_hours: float = 0.0) -> datetime | None:
+    dt = _to_dt(value)
+    return dt - timedelta(hours=utc_offset_hours) if dt else None
+
+
+def days_in_window(start_utc: str, end_utc: str, utc_offset_hours: float = 0.0) -> list[date]:
+    """Días (en la hora local de la app) que cubre la ventana UTC del test."""
     s, e = _to_dt(start_utc), _to_dt(end_utc)
     if not s or not e:
         return []
+    s, e = s + timedelta(hours=utc_offset_hours), e + timedelta(hours=utc_offset_hours)
     out, d = [], s.date()
     while d <= e.date():
         out.append(d)
@@ -187,15 +236,16 @@ def percent_scale(timepoints: list[dict[str, Any]]) -> float:
 
 def analyze(timepoints: list[dict[str, Any]], item_operations: list[dict[str, Any]], window: dict[str, str],
             model_item_id: str, tooling_workspace_id: str | None = None, margin_min: int = 5,
-            version: str | None = None, capacity_id: str | None = None) -> dict[str, Any]:
+            version: str | None = None, capacity_id: str | None = None, utc_offset_hours: float = 0.0,
+            operations_scope: str = "day") -> dict[str, Any]:
     tps = normalize_rows(timepoints)
     ios = normalize_rows(item_operations)
     s, e = _to_dt(window.get("start_utc")), _to_dt(window.get("end_utc"))
     if s and e:
         s, e = s - timedelta(minutes=margin_min), e + timedelta(minutes=margin_min)
     scale = percent_scale(tps)
-    in_win = [r for r in tps if (dt := _to_dt(r.get("TimePoint"))) and (not s or s <= dt <= e)]
-    latest = max((dt for r in tps if (dt := _to_dt(r.get("TimePoint")))), default=None)
+    in_win = [r for r in tps if (dt := timepoint_utc(r.get("TimePoint"), utc_offset_hours)) and (not s or s <= dt <= e)]
+    latest = max((dt for r in tps if (dt := timepoint_utc(r.get("TimePoint"), utc_offset_hours))), default=None)
     test_end = _to_dt(window.get("end_utc"))
     util = [(_f(r.get("B_P")) + _f(r.get("I_P"))) * scale for r in in_win]
 
@@ -225,7 +275,9 @@ def analyze(timepoints: list[dict[str, Any]], item_operations: list[dict[str, An
         o["cu_s"], o["duration_s"], o["throttling_min"] = round(o["cu_s"], 1), round(o["duration_s"], 1), round(o["throttling_min"], 2)
         o["cu_s_per_operation"] = round(o["cu_s"] / o["operations"], 3) if o["operations"] else None
     return {
-        "version": version, "capacity_id": capacity_id, "window": window, "timepoints_in_window": len(in_win),
+        "version": version, "capacity_id": capacity_id, "window": window, "utc_offset_hours": utc_offset_hours,
+        "operations_scope": operations_scope,
+        "timepoints_in_window": len(in_win),
         "percent_scale": scale,
         "latest_timepoint_utc": latest.isoformat() if latest else None,
         "covers_window_end": bool(latest and test_end and latest >= test_end),
@@ -246,6 +298,10 @@ def analyze(timepoints: list[dict[str, Any]], item_operations: list[dict[str, An
                     "share_pct": round(100.0 * tooling_cu / total_cu, 1) if total_cu else 0.0},
         "capacity_cu_s_day": round(total_cu, 1),
     }
+
+
+def _scope(metrics: dict[str, Any]) -> str:
+    return "horas del test" if metrics.get("operations_scope") == "hour" else "día completo"
 
 
 def evaluate_capacity(metrics: dict[str, Any] | None, cfg: dict[str, Any]) -> list[Check]:
@@ -288,7 +344,7 @@ def evaluate_capacity(metrics: dict[str, Any] | None, cfg: dict[str, Any]) -> li
     if not model["found"] and tooling.get("workspace_id") and not tooling.get("found"):
         # Ni el modelo ni los notebooks del generador: la tabla diaria (se refresca con la app) aún no cubre el test.
         checks.append(Check("capacity.model_found", "capacity", SKIP, "Operaciones del modelo pendientes en Capacity Metrics",
-                            "La tabla diaria por item todavía no incluye el test (tampoco los notebooks del generador). "
+                            f"La tabla por item ({_scope(metrics)}) todavía no incluye el test (tampoco los notebooks del generador). "
                             "La utilización y el throttling de la ventana sí están medidos; repite NB_Gate_CapacityMetrics "
                             "tras el siguiente refresco de la app para ver CU y operaciones del modelo."))
     elif not model["found"]:
@@ -300,13 +356,13 @@ def evaluate_capacity(metrics: dict[str, Any] | None, cfg: dict[str, Any]) -> li
             "capacity.model_operations", "capacity", FAIL if bad > c["max_model_failed_operations"] else PASS,
             "Operaciones fallidas o rechazadas del modelo",
             f"{model['failed_operations']} fallidas, {model['rejected_operations']} rechazadas, "
-            f"{n(model['throttling_min'], 1)} min de throttling (día completo).", {"failed": model["failed_operations"],
+            f"{n(model['throttling_min'], 1)} min de throttling ({_scope(metrics)}).", {"failed": model["failed_operations"],
                                                                               "rejected": model["rejected_operations"]}))
     tool = metrics["tooling"]
     if tool.get("workspace_id"):
         checks.append(Check(
             "capacity.tooling_share", "capacity", WARN if tool["share_pct"] > c["max_tooling_cu_share_pct"] else PASS,
             "Consumo del propio generador de carga",
-            f"Los notebooks del test suponen el {n(tool['share_pct'], 1)} % del CU del día en la capacidad. "
+            f"Los notebooks del test suponen el {n(tool['share_pct'], 1)} % del CU de la capacidad ({_scope(metrics)}). "
             "Si comparten capacidad con el modelo, contaminan la medida.", {"share_pct": tool["share_pct"]}))
     return checks

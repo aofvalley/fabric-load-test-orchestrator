@@ -32,7 +32,7 @@ Claude Code.
 | **Buenas prácticas** | Best Practice Analyzer de semantic-link-labs y estadísticas VertiPaq del modelo | Hay reglas de severidad Error, se viola una regla bloqueante del equipo (por defecto: columnas en coma flotante y relaciones bidireccionales) o el modelo no cabe en el SKU de producción |
 | **Test de carga** | Rampa secuencial de usuarios virtuales (por ejemplo 6, 20 y 60) con las consultas DAX y las pausas reales de una grabación de Performance Analyzer | El p95 con los usuarios objetivo supera el SLO o fallan más consultas de las permitidas |
 | **Informe de carga** | Percentiles por nivel, nivel sostenido dentro del SLO, visuales y consultas lentas, separando consulta lenta de contención | No bloquea: alimenta las mejoras priorizadas |
-| **Capacity Metrics** | Utilización, throttling, carry-over y CU del modelo en la ventana exacta del test, más el consumo del propio generador de carga | La capacidad pasa del 80 % o hay rechazo de consultas interactivas |
+| **Capacity Metrics** | Utilización, throttling y carry-over en la ventana exacta del test (timepoints de 30 s), y CU y operaciones del modelo y del propio generador en las horas del test | La capacidad pasa del 80 %, hay rechazo de consultas interactivas u operaciones fallidas del modelo |
 
 El resultado de cada run queda en `Files/PromotionGate/runs/<run_id>/` (`verdict.json`, `report.md` y un JSON por
 fase) y en las tablas Delta `gate_runs` y `gate_checks`, que son la auditoría de promociones. Ejemplo de informe:
@@ -105,7 +105,7 @@ pwsh promotion-gate/deploy/deploy.ps1 `
   -ToolsWorkspace "Load Testing" `
   -AppWorkspace "Load Testing App" `
   -CapacityMetricsWorkspace "Microsoft Fabric Capacity Metrics" `
-  -SuccessCase -WhatIf
+  -SuccessCase -SuccessCaseWorkspace "Load Testing Models" -WhatIf
 ```
 
 `-WhatIf` resuelve workspaces, capacidades y lakehouse y enseña el plan sin tocar nada. Quítalo para desplegar. El
@@ -118,7 +118,7 @@ script es idempotente: repítelo para actualizar.
 | `orchestrator` | Instala los notebooks y pipelines del Fabric Load Test Orchestrator de este mismo repo, con los ids del workspace resueltos |
 | `gate` | Construye el wheel de `promotion_gate` y despliega `NB_Gate_*`, `PL_PromotionGate`, el wheel y `config/gate.yaml` |
 | `app` | Crea o reutiliza el registro SPA de Entra con las redirect URIs (`localhost` y la URL de hosting), escribe `app/.env` y ejecuta `rayfin up`, que construye la app, la publica y crea la tabla del historial |
-| `-SuccessCase` | Despliega el caso de éxito Ventas Retail en una carpeta del workspace de herramientas |
+| `-SuccessCase` | Despliega el caso de éxito Ventas Retail en `-SuccessCaseWorkspace` (por defecto, el de herramientas) |
 
 Parámetros útiles:
 
@@ -127,6 +127,7 @@ Parámetros útiles:
 | `-Steps gate,app` | Repetir solo algunos pasos |
 | `-SpaClientId <guid>` | Usar un registro SPA existente en lugar de crear `promotion-gate-app` |
 | `-Subscription <id>` o `-Tenant <id>` | Pedir los tokens para otra suscripción o tenant sin cambiar la cuenta por defecto de `az` |
+| `-SuccessCaseWorkspace <nombre o guid>` | Workspace del modelo de ejemplo. Que esté en **otra capacidad** que el de herramientas: si comparten capacidad, el CU del generador de carga cuenta junto al del modelo y el gate lo marca como observación |
 | `-LakehouseName`, `-AppItemName` | Cambiar los nombres por defecto (`lh_gate`, `PromotionGateApp`) |
 
 Al terminar imprime los enlaces y los guarda en `deploy/.deployment.json`:
@@ -148,7 +149,7 @@ Abre la app desde `app_portal`. El hosting directo devuelve 401 sin sesión de F
 
 ## Probar con el caso de éxito (Ventas Retail)
 
-`-SuccessCase` crea en el workspace de herramientas una carpeta **Ventas Retail** con un modelo que cumple las buenas
+`-SuccessCase` crea en `-SuccessCaseWorkspace` una carpeta **Ventas Retail** con un modelo que cumple las buenas
 prácticas: lakehouse con un esquema en estrella (2 millones de ventas ficticias), notebook de V-Order, modelo Direct
 Lake con 0 hallazgos de BPA, informe de tres páginas y el escenario de navegación con las 19 consultas de sus
 visuales. Detalle en [demo/caso-exito/README.md](demo/caso-exito/README.md).
@@ -156,24 +157,24 @@ visuales. Detalle en [demo/caso-exito/README.md](demo/caso-exito/README.md).
 En la app:
 
 1. Pulsa **Iniciar sesión en Fabric** y elige tu cuenta.
-2. **Modelo semántico:** el workspace de herramientas, modelo **Ventas Retail** e informe **Ventas Retail**.
+2. **Modelo semántico:** el workspace del caso de éxito, modelo **Ventas Retail** e informe **Ventas Retail**.
 3. **Escenario:** «Reutilizar un escenario ya subido» y `Ventas_Retail_informe.json`.
 4. **Carga:** 60 usuarios objetivo, F64, rampa 6, 20 y 60, con las pausas grabadas.
 5. **Lanzar gate.** Tarda unos 23 minutos.
 
 ![Nuevo gate](docs/img/01-nuevo-gate.png)
 
-Resultado medido en el tenant de desarrollo (F4):
+Resultado medido en el tenant de desarrollo, con el gate en una F4 y el modelo en una F8 (26 minutos):
 
 | Área | Resultado |
 |---|---|
 | Buenas prácticas | 0 errores, 0 avisos, ninguna regla bloqueante |
-| Test de carga | 1.634 consultas sin errores. p95 de 0,12 s, 0,10 s y 0,70 s con 6, 20 y 60 usuarios (SLO 4 s) |
-| Capacity Metrics | Pico de utilización del 19,5 %, sin throttling |
+| Test de carga | 1.634 consultas sin errores. p95 de 0,09 s, 0,10 s y 0,88 s con 6, 20 y 60 usuarios (SLO 4 s) |
+| Capacity Metrics | Pico de utilización del 37,5 % de la F8 del modelo, sin throttling; el generador (en la F4) no consume en ella |
 | Veredicto | **PASS, promocionable** |
 
 Dos comprobaciones salen como «Omitido» y es lo correcto: el tamaño VertiPaq (sempy no informa tamaños de un modelo
-Direct Lake) y las operaciones del modelo en la tabla diaria de Capacity Metrics, que llega horas después del test.
+Direct Lake) y las operaciones del modelo por item, que Capacity Metrics publica con más retraso que la utilización.
 
 Para ver un **no apto**, lanza el gate sobre cualquier modelo con importes en `double` o relaciones bidireccionales:
 el certificado lo dice y las mejoras explican qué cambiar.
@@ -316,7 +317,9 @@ Más usuarios por nivel alargan sobre todo el test de carga. Desglose y lo que s
 | «Falta configuración de la app» | Falta `app/.env`: ejecuta el paso `app` de `deploy.ps1` o copia `app/.env.example` |
 | Todas las consultas del test fallan con «Authentication failed for all authenticators» | Orquestador anterior a la autenticación con semantic-link (3.3.0): repite el paso `orchestrator` |
 | Capacity Metrics «sin datos en la ventana del test» | La app tarda en reflejar el consumo: sube `metrics_lag_minutes` o repite solo `NB_Gate_CapacityMetrics` y `NB_Gate_Verdict` con `smgate run-item` |
-| «Operaciones del modelo pendientes en Capacity Metrics» (omitido) | La tabla diaria por item se actualiza horas después. No bloquea; la utilización y el throttling sí están medidos |
+| «Operaciones del modelo pendientes en Capacity Metrics» (omitido) | La tabla por item y hora aún no incluye el test. No bloquea; la utilización y el throttling sí están medidos. Repite `NB_Gate_CapacityMetrics` más tarde para ver CU y operaciones |
+| Capacity Metrics con datos de otra hora | La app guarda los timepoints en la hora local de su instalación (`'Latest Summary Timestamp'[UTC Offset]`). El gate lo lee y convierte a UTC; el informe dice qué desfase usó |
+| «Consumo del propio generador de carga» con observaciones | El modelo y el workspace de herramientas comparten capacidad. Pon el modelo en otra capacidad |
 | `MagicUsageError: %pip is not supported in high concurrency session` | Notebooks antiguos con `%pip`: los actuales cargan el wheel por `sys.path`. Repite el paso `gate` |
 | El gate no lanza el test de carga | La revisión del modelo es FAIL y se lanzó con `stop_on_review_fail = true` (casilla desmarcada en la app) |
 | BPA marca «Ensure Direct Lake source tables are V-Ordered» | Las tablas Delta se escribieron sin V-Order: reescríbelas con Spark (`spark.sql.parquet.vorder.default = true`) |
@@ -327,7 +330,7 @@ Más usuarios por nivel alargan sobre todo el test de carga. Desglose y lo que s
 cd promotion-gate
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -e ".[cli,dev]"
-python -m pytest                      # 64 tests, sin Fabric
+python -m pytest                      # 68 tests, sin Fabric
 
 cd app
 npm ci

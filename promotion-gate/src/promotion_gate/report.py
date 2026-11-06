@@ -81,6 +81,7 @@ def render_markdown(verdict: dict[str, Any], review: dict[str, Any] | None = Non
         lines += _table(["Métrica", "Valor"], [
             ["Versión del modelo de la app", capacity.get("version")],
             ["Timepoints en la ventana", capacity.get("timepoints_in_window")],
+            ["Hora de los timepoints de la app", f"UTC{capacity.get('utc_offset_hours') or 0:+g} (convertidos a UTC)"],
             ["Utilización pico / media %", f"{capacity.get('peak_utilization_pct')} / {capacity.get('avg_utilization_pct')}"],
             ["Retraso interactivo pico % umbral", capacity.get("peak_interactive_delay_pct")],
             ["Rechazo interactivo pico % umbral", capacity.get("peak_interactive_rejection_pct")],

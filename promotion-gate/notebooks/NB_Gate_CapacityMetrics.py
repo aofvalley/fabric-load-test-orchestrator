@@ -25,12 +25,14 @@ gate_config = ""
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import sempy.fabric as fabric
 
-from promotion_gate.capacity import (SUPPORTED_VERSIONS, analyze, days_in_window, detect_version,
-                                     evaluate_capacity, item_operation_query, normalize_rows, timepoints_query, to_dt)
+from promotion_gate.capacity import (SUPPORTED_VERSIONS, UTC_OFFSET_QUERY, analyze, days_in_window, detect_version,
+                                     evaluate_capacity, item_operation_hour_query, item_operation_query,
+                                     normalize_rows, parse_utc_offset,
+                                     timepoint_utc, timepoints_query, to_dt)
 from promotion_gate.checks import worst
 from promotion_gate.config import load_config
 
@@ -67,21 +69,37 @@ try:
     if version not in SUPPORTED_VERSIONS:
         raise ValueError(f"Capacity Metrics {version} no soportada: actualiza la app")
 
+    try:  # los timepoints van en la hora local de la instalación de la app
+        offset = parse_utc_offset(evaluate(UTC_OFFSET_QUERY).to_dict("records"))
+    except Exception:  # noqa: BLE001 - versiones sin 'Latest Summary Timestamp'
+        offset = 0.0
+    print(f"Capacity Metrics {version}, timepoints en UTC{offset:+g}")
+
     deadline = time.time() + 60 * int(max_extra_wait_minutes)
     end = to_dt(window["end_utc"])
+    local = lambda key: to_dt(window[key]) + timedelta(hours=offset)
     while True:
-        tps, ios = [], []
-        for day in days_in_window(window["start_utc"], window["end_utc"]):
+        tps = []
+        for day in days_in_window(window["start_utc"], window["end_utc"], offset):
             tps += evaluate(timepoints_query(version, cap, day)).to_dict("records")
-            ios += evaluate(item_operation_query(version, cap, day)).to_dict("records")
-        latest = max((to_dt(r.get("TimePoint")) for r in normalize_rows(tps) if r.get("TimePoint") is not None),
+        latest = max((timepoint_utc(r.get("TimePoint"), offset) for r in normalize_rows(tps) if r.get("TimePoint") is not None),
                      default=None)
         if (latest and latest >= end) or time.time() > deadline:
             break
         print(f"Capacity Metrics llega hasta {latest}; el test terminó a las {end}. Reintento en 2 min.")
         time.sleep(120)
 
-    metrics = analyze(tps, ios, window, item_id, tooling, margin_min=int(margin_minutes), version=version, capacity_id=cap)
+    # Operaciones por item: en v53, solo las horas del test (tabla horaria); antes, el día completo.
+    scope = "hour" if version == "v53" else "day"
+    if scope == "hour":
+        ios = evaluate(item_operation_hour_query(version, cap, local("start_utc"), local("end_utc"))).to_dict("records")
+    else:
+        ios = []
+        for day in days_in_window(window["start_utc"], window["end_utc"], offset):
+            ios += evaluate(item_operation_query(version, cap, day)).to_dict("records")
+
+    metrics = analyze(tps, ios, window, item_id, tooling, margin_min=int(margin_minutes), version=version, capacity_id=cap,
+                      utc_offset_hours=offset, operations_scope=scope)
 except Exception as exc:
     metrics = {"error": f"{type(exc).__name__}: {exc}"}
 
