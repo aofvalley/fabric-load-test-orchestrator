@@ -1,0 +1,11 @@
+{
+  "name": "semantic-model-promotion-gate",
+  "version": "0.1.0",
+  "description": "Gate de promoción de modelos semánticos de Power BI y Fabric de dev a prod: revisión de buenas prácticas (BPA y VertiPaq), test de carga con el Fabric Load Test Orchestrator, informe con mejoras y lectura de Capacity Metrics. Solo promociona con veredicto favorable.",
+  "author": {
+    "name": "Plataforma de Datos"
+  },
+  "homepage": "https://github.com/aofvalley/adv-secondbrain-pocs/tree/main/fabric-semantic-model-promotion-gate",
+  "license": "Proprietary",
+  "keywords": ["fabric", "power-bi", "semantic-model", "load-test", "capacity-metrics", "deployment-pipelines"]
+}

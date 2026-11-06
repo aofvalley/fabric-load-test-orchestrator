@@ -1,0 +1,90 @@
+# Plantilla para Azure DevOps. Service connection de Azure Resource Manager con workload identity federation
+# (FABRIC_SERVICE_CONNECTION) y un variable group "promotion-gate" con GATE_WORKSPACE_ID, GATE_LAKEHOUSE_ID,
+# CAPACITY_METRICS_WORKSPACE, DEPLOYMENT_PIPELINE_ID, STAGE_TEST_ID y STAGE_PROD_ID.
+# El environment "production" lleva la aprobación manual antes de promocionar.
+# Runs de más de una hora: el token federado del service connection puede caducar durante el polling. Si pasa,
+# usa `smgate fetch --run-id <run_id>` en un job posterior (el run_id sale en el log) en vez de --wait.
+trigger: none
+
+parameters:
+  - name: dataset
+    type: string
+  - name: model_workspace
+    type: string
+  - name: model_key
+    type: string
+  - name: queryfile
+    type: string
+    default: /lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData.json
+  - name: ramp_levels
+    type: string
+    default: "[6,20,60]"
+
+variables:
+  - group: promotion-gate
+  - name: pocDir
+    value: fabric-semantic-model-promotion-gate
+
+stages:
+  - stage: Gate
+    jobs:
+      - job: gate
+        timeoutInMinutes: 360
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: "3.11" }
+          - script: pip install -e ".[cli]"
+            workingDirectory: $(pocDir)
+          - task: AzureCLI@2
+            name: run
+            env:
+              DATASET: ${{ parameters.dataset }}
+              MODEL_WS: ${{ parameters.model_workspace }}
+              MODEL_KEY: ${{ parameters.model_key }}
+              QUERYFILE: ${{ parameters.queryfile }}
+              RAMP: ${{ parameters.ramp_levels }}
+            inputs:
+              azureSubscription: FABRIC_SERVICE_CONNECTION
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(pocDir)
+              # Los parámetros entran por variables de entorno, nunca pegados en el script (evita inyección).
+              inlineScript: |
+                smgate run --workspace-id "$(GATE_WORKSPACE_ID)" --lakehouse-id "$(GATE_LAKEHOUSE_ID)" --wait --out out \
+                  --param dataset="$DATASET" --param model_workspace="$MODEL_WS" \
+                  --param model_key="$MODEL_KEY" --param queryfile="$QUERYFILE" \
+                  --param ramp_levels="$RAMP" \
+                  --param capacity_metrics_workspace="$(CAPACITY_METRICS_WORKSPACE)" \
+                  --param requested_by="$(Build.RequestedFor)" --param source_ref="$(Build.SourceVersion)"
+          - publish: $(pocDir)/out
+            artifact: promotion-gate
+            condition: always()
+
+  - stage: Promote
+    dependsOn: Gate
+    condition: succeeded()
+    jobs:
+      - deployment: promote
+        environment: production
+        pool: { vmImage: ubuntu-latest }
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: UsePythonVersion@0
+                  inputs: { versionSpec: "3.11" }
+                - script: pip install -e ".[cli]"
+                  workingDirectory: $(pocDir)
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: FABRIC_SERVICE_CONNECTION
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    workingDirectory: $(pocDir)
+                    inlineScript: |
+                      smgate promote --verdict "$(Pipeline.Workspace)/promotion-gate/verdict.json" \
+                        --deployment-pipeline-id "$(DEPLOYMENT_PIPELINE_ID)" \
+                        --source-stage-id "$(STAGE_TEST_ID)" --target-stage-id "$(STAGE_PROD_ID)" \
+                        --note "Gate $(Build.BuildNumber) por $(Build.RequestedFor)"

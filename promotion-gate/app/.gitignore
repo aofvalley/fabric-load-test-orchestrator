@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+!.env.demo
+!.env.example
+rayfin/.env
+rayfin/.temp/
+rayfin/.deployments.json
+.rayfin/
+*.log

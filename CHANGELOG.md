@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- New `promotion-gate/`: a promotion gate for semantic models built on this orchestrator. Best Practice Analyzer and
+  VertiPaq, a full load test with `PL_PerfTest_MultiModel_v3`, a load test report with prioritised improvements and the
+  Fabric Capacity Metrics of the test window end in a PASS, WARN or FAIL certificate. It ships a Fabric App (Rayfin) to
+  pick the model, launch and follow the gate and sign the promotion with a deployment pipeline, the `smgate` CLI, CI
+  templates, a Copilot CLI and Claude Code plugin, a one-command deployment (`promotion-gate/deploy/deploy.ps1`) and a
+  success case that passes the gate. Documentation in Spanish: [promotion-gate/README.md](promotion-gate/README.md).
+
 ## 3.3.0
 
 - `RunLoadTest_v3` writes `summary.json` in every run folder and exits with it (`notebookutils.notebook.exit`): latency
@@ -14,6 +23,10 @@
 - `AnalyzeLoadTest_v3`: queries 1 and 8 count failed queries; query 8 computes the percentiles over successful queries.
   Runs without the `status` column are read as successful.
 - `RunLoadTest_v3`: the polars consolidation accepts CSV files with different columns.
+- `RunPerfScenario_v3`: ADOMD connections authenticate like semantic-link (`refresh_tom_access_token` plus an
+  `OnAccessTokenExpired` callback). Some tenants reject the token passed as `password=` with "Authentication failed for all
+  authenticators"; without sempy the notebook falls back to the previous form. The token is no longer part of the logged
+  connection string.
 
 ## 3.2.0
 
