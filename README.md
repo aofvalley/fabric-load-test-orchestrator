@@ -106,7 +106,8 @@ and [RLS identities](docs/parameters.md#rls-identities).
 | `rls_users` | empty | Global list of UPNs to impersonate (`EffectiveUserName`), comma-separated |
 | `rls_users_file` | empty | Global text file with the UPNs, e.g. `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
 
-All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md).
+All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md). Field-by-field reference of the
+`PL_PerfTest_MultiModel_v3` pipeline, with ready-to-paste examples: [docs/pipeline-parameters.md](docs/pipeline-parameters.md).
 
 ## Verify what ran
 

@@ -1,5 +1,8 @@
 # Parameters
 
+For a field-by-field reference of `PL_PerfTest_MultiModel_v3` (what each parameter expects, the `workspace` format, and how to switch between
+lists, files, global users and per-model users) see [pipeline-parameters.md](pipeline-parameters.md).
+
 ## Pipeline parameters
 
 Defined in `PL_PerfTest_MultiModel_v3` and forwarded to `PL_PerfTest_Ramp_v3` and then to `RunLoadTest_v3`.
