@@ -101,6 +101,24 @@ def test_parent_runs_models_in_parallel_and_child_runs_levels_sequentially():
     assert pipeline("PL_PerfTest_Ramp_v3")["properties"]["parameters"]["ramp_levels"]["type"] == "Array"
 
 
+def test_rls_parameters_travel_from_the_parent_to_the_notebook_with_backward_compatible_defaults():
+    parent = pipeline("PL_PerfTest_MultiModel_v3")["properties"]
+    child = pipeline("PL_PerfTest_Ramp_v3")["properties"]
+    notebook = child["activities"][0]["typeProperties"]["activities"][0]["typeProperties"]["parameters"]
+    execute = parent["activities"][0]["typeProperties"]["activities"][0]["typeProperties"]["parameters"]
+    defaults = {"rls_source": "list", "rls_scope": "global", "rls_users": "", "rls_users_file": ""}
+    for name, value in defaults.items():
+        assert parent["parameters"][name]["defaultValue"] == child["parameters"][name]["defaultValue"] == value
+        assert execute[name]["value"] == f"@pipeline().parameters.{name}"
+        assert notebook[name]["value"]["value"] == f"@pipeline().parameters.{name}"
+    # the model item travels as JSON so that optional keys (users, users_file) never break the expression
+    assert execute["model_settings"]["value"] == "@string(item())"
+    assert "model_settings" not in parent["parameters"] and child["parameters"]["model_settings"]["defaultValue"] == ""
+    assert notebook["model_settings"]["value"]["value"] == "@pipeline().parameters.model_settings"
+    declared = assigned_names(parameters_cell(load_notebook(NOTEBOOKS / "RunLoadTest_v3.ipynb")))
+    assert {"rls_source", "rls_scope", "rls_users", "rls_users_file", "model_settings"} <= declared
+
+
 def test_pipelines_have_a_safe_first_run_and_placeholders_only():
     child = pipeline("PL_PerfTest_Ramp_v3")["properties"]["parameters"]
     parent = pipeline("PL_PerfTest_MultiModel_v3")["properties"]["parameters"]

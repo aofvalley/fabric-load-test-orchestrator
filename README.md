@@ -17,7 +17,7 @@ to any workspace with **one installer notebook**.
 | One model per run | A parent pipeline runs **N models in parallel** (`ForEach`, at most 10 at a time) |
 | `delay_sec` after every query | Optional **think-time replay**: the pauses between user actions recorded in the Performance Analyzer file (scale, cap, jitter) |
 | All users start at once | Optional **staggered start** (`ramp_up_sec`) and random initial offset (`initial_user_jitter_sec`) |
-| Users hard-coded in a cell | `rls_users` parameter (comma-separated UPNs) |
+| Users hard-coded in a cell | RLS identities from a **list** (`rls_users`) or a **text file** (`rls_users_file`), for all models or **one per model** (`rls_source`, `rls_scope`) |
 | Access token printed in logs | Token **redacted** in console output and `error.log` |
 | Manual import of every item | **Installer notebook** + zip: resolves workspace, lakehouse, notebook and pipeline ids for the target workspace and verifies the result |
 | – | **Analysis notebook** (DuckDB) with nine queries that prove the ramp, the think times and the parallelism |
@@ -47,7 +47,7 @@ notebooks/      RunPerfScenario_v3, RunLoadTest_v3, AnalyzeLoadTest_v3  (source 
 pipelines/      PL_PerfTest_Ramp_v3.json, PL_PerfTest_MultiModel_v3.json (with {{placeholders}} resolved by the installer)
 installer/      Setup_LoadTest_v3.ipynb  (deploys the package into the workspace where it runs)
 tools/          build_package.py (builds dist/FabricLoadTest_v3_package.zip), make_sample_data.py
-samples/        sample_performance_data.json (synthetic), models.example.json
+samples/        sample_performance_data.json (synthetic), models.example.json, models.rls.example.json, users.example.txt
 tests/          pytest suite
 docs/           architecture, deployment, parameters, analysis, changes from upstream, Spanish guide (docs/es)
 upstream/       exact copies of the original files (do not edit)
@@ -65,7 +65,8 @@ higher in the workspace.
 3. **Upload** the zip to `Files/deploy/` of that lakehouse.
 4. In the Parameters cell set `MODELS` (or leave `None` and edit the pipeline later) and run with `DRY_RUN = True` first,
    then `DRY_RUN = False`. The installer ends with a verification that every id belongs to the workspace.
-5. **Upload one Performance Analyzer JSON per model** to `Files/PerfScenarios/Queries/`.
+5. **Upload one Performance Analyzer JSON per model** to `Files/PerfScenarios/Queries/`. For RLS, upload the users files (one UPN per line)
+   to `Files/PerfScenarios/Users/` and choose `rls_source` / `rls_scope`.
 6. Open `PL_PerfTest_MultiModel_v3`, press **Run**, fill in `models`. The default ramp is the safe `[1, 5, 10]`; change
    `ramp_levels` to `[6, 20, 60, 100, 200, 300]` for a real run.
 7. Run `AnalyzeLoadTest_v3` to check the ramp, the think times and the parallelism.
@@ -84,7 +85,9 @@ Full steps and troubleshooting: [docs/deployment.md](docs/deployment.md).
 ```
 
 `model_key` is a short unique label (letters, digits, `-`, `_`) used in the result folder names. `dataset` is the exact name of the
-semantic model. An empty `workspace` means the current workspace. See [samples/models.example.json](samples/models.example.json).
+semantic model. An empty `workspace` means the current workspace. Each item may also carry `users` or `users_file` for per-model RLS
+identities. See [samples/models.example.json](samples/models.example.json), [samples/models.rls.example.json](samples/models.rls.example.json)
+and [RLS identities](docs/parameters.md#rls-identities).
 
 ## Main parameters
 
@@ -98,7 +101,10 @@ semantic model. An empty `workspace` means the current workspace. See [samples/m
 | `think_time_jitter_pct` | `0.1` | ±10 % random variation of each pause |
 | `ramp_up_sec` | `0` | Window over which the users of one level start (`0` = all at once) |
 | `initial_user_jitter_sec` | `0` | Random extra delay (0..N s) before each user's first action |
-| `rls_users` | empty | Comma-separated UPNs to impersonate (`EffectiveUserName`) |
+| `rls_source` | `list` | Where the RLS identities come from: `list`, `file` (text file, one UPN per line) or `none` |
+| `rls_scope` | `global` | `global`: same identities for every model; `per_model`: `users` / `users_file` in each `models` item |
+| `rls_users` | empty | Global list of UPNs to impersonate (`EffectiveUserName`), comma-separated |
+| `rls_users_file` | empty | Global text file with the UPNs, e.g. `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
 
 All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md).
 

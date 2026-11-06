@@ -12,3 +12,5 @@ venv/
 # Local, never commit
 *.local.*
 .env
+users.txt
+users_*.txt

@@ -69,6 +69,22 @@
       "rls_users": {
         "type": "String",
         "defaultValue": ""
+      },
+      "rls_source": {
+        "type": "String",
+        "defaultValue": "list"
+      },
+      "rls_scope": {
+        "type": "String",
+        "defaultValue": "global"
+      },
+      "rls_users_file": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "model_settings": {
+        "type": "String",
+        "defaultValue": ""
       }
     },
     "activities": [
@@ -199,6 +215,34 @@
                   "rls_users": {
                     "value": {
                       "value": "@pipeline().parameters.rls_users",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "rls_source": {
+                    "value": {
+                      "value": "@pipeline().parameters.rls_source",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "rls_scope": {
+                    "value": {
+                      "value": "@pipeline().parameters.rls_scope",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "rls_users_file": {
+                    "value": {
+                      "value": "@pipeline().parameters.rls_users_file",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "model_settings": {
+                    "value": {
+                      "value": "@pipeline().parameters.model_settings",
                       "type": "Expression"
                     },
                     "type": "string"

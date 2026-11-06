@@ -14,8 +14,8 @@ Compare them yourself with, for example:
 | Validation | None | Types are normalised; ranges are checked (`1 ≤ concurrent_threads ≤ 300`, jitter between 0 and 1, no negatives); missing navigation file gives a clear error |
 | Run identifier | `<name>-<timestamp>` | `<name>-c<concurrent_threads>-<timestamp>`, so each ramp level has its own folder |
 | Virtual users | Started together | `start_delay_sec = ramp_up_sec × i / concurrent_threads` is passed to every user (staggered start) |
-| RLS | Users list edited in the code | `rls_users` parameter (comma-separated UPNs, spread across the virtual users) |
-| New parameters | – | `enable_think_times`, `think_time_scale`, `max_think_time_sec`, `think_time_jitter_pct`, `fallback_think_time_sec`, `ramp_up_sec`, `initial_user_jitter_sec`, `rls_users` |
+| RLS | Users list edited in the code | `rls_source` (`list`, `file`, `none`) and `rls_scope` (`global`, `per_model`): UPNs from `rls_users`, from a text file (`rls_users_file`) or from each model's `users` / `users_file`, spread across the virtual users |
+| New parameters | – | `enable_think_times`, `think_time_scale`, `max_think_time_sec`, `think_time_jitter_pct`, `fallback_think_time_sec`, `ramp_up_sec`, `initial_user_jitter_sec`, `rls_source`, `rls_scope`, `rls_users`, `rls_users_file`, `model_settings` |
 | Callee | `RunPerfScenario` | `RunPerfScenario_v3` |
 | Result consolidation | Kept | Kept (same polars aggregation cell) |
 

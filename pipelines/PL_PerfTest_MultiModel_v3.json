@@ -91,6 +91,22 @@
                   "rls_users": {
                     "value": "@pipeline().parameters.rls_users",
                     "type": "Expression"
+                  },
+                  "rls_source": {
+                    "value": "@pipeline().parameters.rls_source",
+                    "type": "Expression"
+                  },
+                  "rls_scope": {
+                    "value": "@pipeline().parameters.rls_scope",
+                    "type": "Expression"
+                  },
+                  "rls_users_file": {
+                    "value": "@pipeline().parameters.rls_users_file",
+                    "type": "Expression"
+                  },
+                  "model_settings": {
+                    "value": "@string(item())",
+                    "type": "Expression"
                   }
                 }
               }
@@ -160,6 +176,18 @@
         "defaultValue": 0.0
       },
       "rls_users": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "rls_source": {
+        "type": "String",
+        "defaultValue": "list"
+      },
+      "rls_scope": {
+        "type": "String",
+        "defaultValue": "global"
+      },
+      "rls_users_file": {
         "type": "String",
         "defaultValue": ""
       }

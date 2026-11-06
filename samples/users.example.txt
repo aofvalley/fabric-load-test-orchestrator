@@ -1,0 +1,8 @@
+# Users to impersonate with RLS (EffectiveUserName). One user principal name (UPN) per line.
+# Blank lines are ignored, "#" starts a comment, duplicates are removed (case-insensitive).
+# Every user needs read and build permission on the semantic model.
+# If a level has more virtual users than lines here, the identities are reused in turn.
+# Use real UPNs only in your own copy; do not commit real users to a repository.
+user1@contoso.com
+user2@contoso.com
+user3@contoso.com   # trailing comments are fine

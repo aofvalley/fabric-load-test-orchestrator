@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = "FabricLoadTest_v3"
-VERSION = "3.2.0"
+VERSION = "3.3.0"
 
 GUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 EMAIL = re.compile(r"[\w.+-]+@((?:[\w-]+\.)+[A-Za-z]{2,})")
@@ -47,7 +47,7 @@ TOKENS = {
     "PL_PerfTest_Ramp_v3": ["{{WORKSPACE_ID}}", "{{NOTEBOOK:RunLoadTest_v3}}"],
     "PL_PerfTest_MultiModel_v3": ["{{PIPELINE:PL_PerfTest_Ramp_v3}}"],
 }
-FOLDERS = ["Files/PerfScenarios/Queries", "Files/PerfScenarios/logs"]
+FOLDERS = ["Files/PerfScenarios/Queries", "Files/PerfScenarios/Users", "Files/PerfScenarios/logs"]
 
 
 def _notebook_scan_text(raw: bytes) -> str:

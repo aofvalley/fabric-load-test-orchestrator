@@ -1,4 +1,5 @@
 """Functional tests of RunLoadTest_v3: parameters injected by the pipeline reach the DAG that is handed to runMultiple."""
+import json
 import os
 import sys
 import time
@@ -87,6 +88,134 @@ def test_rls_users_are_spread_across_the_virtual_users(tmp_path):
 def test_without_rls_users_no_identity_is_impersonated(tmp_path):
     _, dag = run(tmp_path, dict(BASE, concurrent_threads=3, rls_users=""))
     assert all(a["args"]["effective_username"] is None for a in dag["activities"])
+
+
+def identities(dag):
+    return [a["args"]["effective_username"] for a in dag["activities"]]
+
+
+def users_file(tmp_path, name, content):
+    path = tmp_path / name
+    path.write_text(content, encoding="utf-8")
+    return str(path)
+
+
+def model_settings(**fields):
+    return json.dumps({"model_key": "SalesA", "dataset": "Sales", "workspace": "", "queryfile": str(SAMPLE), **fields})
+
+
+def test_defaults_keep_the_previous_behaviour_of_rls_users(tmp_path):
+    namespace, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_users="a@contoso.com"))
+    assert (namespace["rls_source"], namespace["rls_scope"]) == ("list", "global")
+    assert identities(dag) == ["a@contoso.com", "a@contoso.com"]
+
+
+def test_file_source_reads_one_upn_per_line_and_spreads_them(tmp_path):
+    path = users_file(tmp_path, "users.txt", "\ufeff# test users\nA@contoso.com\n\n  b@contoso.com  # second\nc@contoso.com;d@contoso.com\n")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=6, rls_source="file", rls_users_file=path))
+    assert identities(dag) == ["A@contoso.com", "b@contoso.com", "c@contoso.com", "d@contoso.com", "A@contoso.com", "b@contoso.com"]
+
+
+def test_file_source_removes_duplicates_ignoring_case_and_keeps_the_first_spelling(tmp_path):
+    path = users_file(tmp_path, "users.txt", "Ann@contoso.com\nann@CONTOSO.com\nbob@contoso.com\n")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=3, rls_source="file", rls_users_file=path))
+    assert identities(dag) == ["Ann@contoso.com", "bob@contoso.com", "Ann@contoso.com"]
+
+
+def test_file_source_ignores_rls_users(tmp_path):
+    path = users_file(tmp_path, "users.txt", "file@contoso.com\n")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_source="file", rls_users_file=path, rls_users="list@contoso.com"))
+    assert set(identities(dag)) == {"file@contoso.com"}
+
+
+def test_list_source_ignores_the_file(tmp_path):
+    path = users_file(tmp_path, "users.txt", "file@contoso.com\n")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_source="list", rls_users_file=path, rls_users="list@contoso.com"))
+    assert set(identities(dag)) == {"list@contoso.com"}
+
+
+def test_none_source_disables_impersonation_even_if_users_are_given(tmp_path):
+    path = users_file(tmp_path, "users.txt", "file@contoso.com\n")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_source="none", rls_users_file=path, rls_users="list@contoso.com"))
+    assert identities(dag) == [None, None]
+
+
+def test_global_scope_ignores_the_users_of_the_model(tmp_path):
+    settings = model_settings(users=["own@contoso.com"])
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_scope="global", rls_users="all@contoso.com", model_settings=settings))
+    assert set(identities(dag)) == {"all@contoso.com"}
+
+
+def test_per_model_list_uses_the_users_of_the_model(tmp_path):
+    settings = model_settings(users=["a@contoso.com", "b@contoso.com"])
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=3, rls_scope="per_model", rls_users="all@contoso.com", model_settings=settings))
+    assert identities(dag) == ["a@contoso.com", "b@contoso.com", "a@contoso.com"]
+
+
+def test_per_model_list_accepts_a_text_value_too(tmp_path):
+    settings = model_settings(users="a@contoso.com, b@contoso.com")
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_scope="per_model", model_settings=settings))
+    assert identities(dag) == ["a@contoso.com", "b@contoso.com"]
+
+
+def test_per_model_file_uses_the_file_of_the_model(tmp_path):
+    own = users_file(tmp_path, "sales_a.txt", "own1@contoso.com\nown2@contoso.com\n")
+    other = users_file(tmp_path, "global.txt", "global@contoso.com\n")
+    settings = model_settings(users_file=own)
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_source="file", rls_scope="per_model", rls_users_file=other,
+                                model_settings=settings))
+    assert identities(dag) == ["own1@contoso.com", "own2@contoso.com"]
+
+
+def test_per_model_falls_back_to_the_global_value_when_the_model_has_none(tmp_path, capsys):
+    other = users_file(tmp_path, "global.txt", "global@contoso.com\n")
+    run(tmp_path, dict(BASE, concurrent_threads=2, rls_source="file", rls_scope="per_model", rls_users_file=other, model_settings=model_settings()))
+    assert "global file (rls_users_file)" in capsys.readouterr().out
+    _, dag = run(tmp_path, dict(BASE, concurrent_threads=2, rls_scope="per_model", rls_users="all@contoso.com", model_settings=model_settings()))
+    assert set(identities(dag)) == {"all@contoso.com"}
+
+
+def test_two_models_get_their_own_identities_from_the_same_notebook(tmp_path):
+    first = users_file(tmp_path, "first.txt", "first@contoso.com\n")
+    second = users_file(tmp_path, "second.txt", "second@contoso.com\n")
+    common = dict(BASE, concurrent_threads=2, rls_source="file", rls_scope="per_model")
+    _, dag_a = run(tmp_path, dict(common, model_settings=model_settings(users_file=first)))
+    _, dag_b = run(tmp_path, dict(common, model_settings=model_settings(users_file=second)))
+    assert set(identities(dag_a)) == {"first@contoso.com"} and set(identities(dag_b)) == {"second@contoso.com"}
+
+
+def test_the_log_shows_where_the_identities_come_from_without_printing_them(tmp_path, capsys):
+    path = users_file(tmp_path, "users.txt", "secret.user@contoso.com\nsecond.user@contoso.com\n")
+    run(tmp_path, dict(BASE, concurrent_threads=5, rls_source="file", rls_users_file=path))
+    out = capsys.readouterr().out
+    assert "RLS identities: 2" in out and "global file (rls_users_file)" in out and "reused in turn" in out
+    assert "secret.user" not in out
+
+
+@pytest.mark.parametrize("injected, error, message", [
+    (dict(rls_source="file", rls_users_file=""), ValueError, "no file was given"),
+    (dict(rls_source="file", rls_users_file="/does/not/exist.txt"), FileNotFoundError, "Users file not found"),
+    (dict(rls_source="database"), ValueError, "rls_source must be"),
+    (dict(rls_scope="local"), ValueError, "rls_scope must be"),
+    (dict(model_settings="{not json"), ValueError, "not valid JSON"),
+    (dict(model_settings="[1, 2]"), ValueError, "must be a JSON object"),
+    (dict(rls_users="not-an-upn"), ValueError, "not-an-upn"),
+])
+def test_invalid_rls_settings_fail_before_anything_is_started(tmp_path, injected, error, message):
+    with pytest.raises(error, match=message):
+        run(tmp_path, {**BASE, "concurrent_threads": 2, **injected})
+
+
+def test_an_empty_users_file_is_an_error(tmp_path):
+    path = users_file(tmp_path, "users.txt", "# nobody yet\n\n")
+    with pytest.raises(ValueError, match="contains no users"):
+        run(tmp_path, dict(BASE, rls_source="file", rls_users_file=path))
+
+
+def test_invalid_lines_are_reported_with_their_line_number(tmp_path):
+    path = users_file(tmp_path, "users.txt", "ok@contoso.com\nnot a upn\n")
+    with pytest.raises(ValueError, match=r"line 2.*'not a upn'|line 2.*not"):
+        run(tmp_path, dict(BASE, rls_source="file", rls_users_file=path))
 
 
 @pytest.mark.parametrize("bad, error", [

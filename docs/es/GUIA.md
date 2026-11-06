@@ -9,7 +9,7 @@
 - Para cada modelo, ejecutar una **rampa de usuarios concurrentes** de forma **secuencial** (por ejemplo 6, 20, 60, 100, 200, 300) con un pipeline hijo (`PL_PerfTest_Ramp_v3`). El pipeline pasa `concurrent_threads` al notebook en tiempo de ejecución.
 - Reproducir los **think times** (pausas entre acciones del usuario) grabados con Performance Analyzer.
 - Escalonar el arranque de los usuarios (`ramp_up_sec`) y añadir un desfase aleatorio inicial (`initial_user_jitter_sec`).
-- Usar RLS con el parámetro `rls_users` (UPN separados por comas).
+- Usar RLS con `rls_source` (`list`, `file`, `none`) y `rls_scope` (`global`, `per_model`): los UPN pueden ir en el parámetro `rls_users`, en un **archivo de texto** (`rls_users_file`, un UPN por línea) o **por modelo** (`users` / `users_file` dentro de cada elemento de `models`).
 - **Desplegar en cualquier workspace** con un notebook instalador y un zip, sin ids fijos.
 - Analizar los resultados con `AnalyzeLoadTest_v3` (nueve consultas).
 
@@ -49,6 +49,19 @@ Requisitos: endpoint de lectura XMLA habilitado en la capacidad y permisos de le
 - `model_key`: etiqueta corta y única (letras, dígitos, `-` y `_`), forma parte del nombre de las carpetas de resultados.
 - `dataset`: nombre **exacto** del modelo semántico.
 - `workspace`: vacío = el workspace actual.
+- `users` / `users_file` (opcionales): usuarios RLS de ese modelo (lista o archivo), para `rls_scope = per_model`.
+
+## Usuarios RLS (`EffectiveUserName`)
+
+| `rls_source` | `rls_scope = global` (por defecto) | `rls_scope = per_model` |
+|---|---|---|
+| `list` (por defecto) | `rls_users` para todos los modelos | `users` del modelo; si no tiene, `rls_users` |
+| `file` | `rls_users_file` para todos los modelos | `users_file` del modelo; si no tiene, `rls_users_file` |
+| `none` | sin suplantación | sin suplantación |
+
+Archivo de usuarios: un UPN por línea; se ignoran líneas vacías y comentarios `#`, se eliminan duplicados y una línea no válida se rechaza indicando su número.
+Súbelos a `Files/PerfScenarios/Users/`. Con los valores por defecto no se suplanta a nadie (se usa la identidad que ejecuta la prueba). El log indica
+cuántas identidades hay y de dónde salen, pero nunca los UPN. Cada usuario necesita permisos de lectura y *build* sobre el modelo.
 
 ## Parámetros de think times y rampa
 

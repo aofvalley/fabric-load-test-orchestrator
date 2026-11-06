@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.3.0
+
+- **RLS identities from a text file.** New switches, in the same spirit as `enable_think_times`:
+  - `rls_source`: `list` (default), `file` or `none`.
+  - `rls_scope`: `global` (default) or `per_model`.
+  - `rls_users_file`: global file with one UPN per line (blank lines and `#` comments ignored, duplicates removed, invalid lines rejected with their line number).
+  - Each item of `models` may carry `users` or `users_file` for per-model identities; a model without its own falls back to the global value.
+  - The defaults reproduce 3.2.0: with the default parameters nothing changes.
+- The pipelines pass the item of each model to the notebook as JSON (`model_settings`), so optional keys never break a pipeline expression.
+- Installer: validates `users` / `users_file` in `MODELS`, new optional `RLS_SOURCE`, `RLS_SCOPE`, `RLS_USERS`, `RLS_USERS_FILE` defaults,
+  creates `Files/PerfScenarios/Users/` and warns when a referenced users file does not exist yet.
+- Notebook logs state where the identities come from and how many there are, never the UPNs.
+- Samples `users.example.txt` and `models.rls.example.json`; tests for every combination of source and scope.
+
 ## 3.2.0
 
 First public release of the repository.

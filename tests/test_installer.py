@@ -157,10 +157,11 @@ def run_installer(fake, lake, ws_name="Perf Workspace", lh_name="PerfLakehouse",
     cells = code_cells(load_notebook(INSTALLER))
     assert len(cells) == 6
 
-    def local_paths(source):  # the only three places that read or write the lakehouse by its /lakehouse/default path
+    def local_paths(source):  # the places that read or write the lakehouse by its /lakehouse/default path
         for old, new in (('"/lakehouse/default/" + PACKAGE_PATH', 'LAKEHOUSE_ROOT + "/" + PACKAGE_PATH'),
                          ('queries_dir = "/lakehouse/default/Files/PerfScenarios/Queries"',
-                          'queries_dir = LAKEHOUSE_ROOT + "/Files/PerfScenarios/Queries"')):
+                          'queries_dir = LAKEHOUSE_ROOT + "/Files/PerfScenarios/Queries"'),
+                         ('LAKEHOUSE_FILES_ROOT = "/lakehouse/default"', 'LAKEHOUSE_FILES_ROOT = LAKEHOUSE_ROOT')):
             source = source.replace(old, new)
         return source
 
@@ -202,6 +203,7 @@ def test_deploy_creates_every_item_with_references_of_this_workspace(env):
     for item in fake.items.values():
         assert "{{" not in fake.definition_text(item["displayName"])
     assert (lake.root / "Files" / "PerfScenarios" / "Queries").is_dir() and (lake.root / "Files" / "PerfScenarios" / "logs").is_dir()
+    assert (lake.root / "Files" / "PerfScenarios" / "Users").is_dir()
     assert "WARNING: the `models` parameter" in out
 
 
@@ -325,3 +327,99 @@ def test_summary_suggests_models_and_lists_navigation_files(env):
     suggestion = json.loads(next(l for l in out.splitlines() if l.startswith("[{")))
     assert suggestion[0]["model_key"] == "AdventureWorksSales1" and suggestion[0]["dataset"] == "AdventureWorks Sales 1"
     assert suggestion[0]["queryfile"].endswith("/PowerBIPerformanceData_AdventureWorksSales1.json")
+
+
+QUERY = "/lakehouse/default/Files/PerfScenarios/Queries/q.json"
+USERS = "/lakehouse/default/Files/PerfScenarios/Users"
+
+
+def pipeline_parameters(fake, name):
+    return json.loads(fake.definition_text(name))["properties"]["parameters"]
+
+
+def test_models_may_carry_users_or_a_users_file(env):
+    fake, lake = env
+    models = [{"model_key": "SalesA", "dataset": "Sales A", "queryfile": QUERY, "users": ["a@contoso.com", " b@contoso.com "]},
+              {"model_key": "SalesB", "dataset": "Sales B", "queryfile": QUERY, "users": "c@contoso.com; d@contoso.com"},
+              {"model_key": "SalesC", "dataset": "Sales C", "queryfile": QUERY, "users_file": f"{USERS}/c.txt"},
+              {"model_key": "SalesD", "dataset": "Sales D", "queryfile": QUERY}]
+    run_installer(fake, lake, MODELS=models)
+    stored = pipeline_parameters(fake, "PL_PerfTest_MultiModel_v3")["models"]["defaultValue"]
+    assert stored[0]["users"] == ["a@contoso.com", "b@contoso.com"] and stored[1]["users"] == ["c@contoso.com", "d@contoso.com"]
+    assert stored[2]["users_file"] == f"{USERS}/c.txt" and "users" not in stored[2]
+    assert "users" not in stored[3] and "users_file" not in stored[3]
+
+
+def test_rls_defaults_are_written_into_both_pipelines(env):
+    fake, lake = env
+    _, out = run_installer(fake, lake, RLS_SOURCE="file", RLS_SCOPE="global", RLS_USERS_FILE=f"{USERS}/users.txt",
+                           RLS_USERS=["x@contoso.com", "y@contoso.com"])
+    for name in ("PL_PerfTest_Ramp_v3", "PL_PerfTest_MultiModel_v3"):
+        parameters = pipeline_parameters(fake, name)
+        assert parameters["rls_source"]["defaultValue"] == "file" and parameters["rls_scope"]["defaultValue"] == "global"
+        assert parameters["rls_users_file"]["defaultValue"] == f"{USERS}/users.txt"
+        assert parameters["rls_users"]["defaultValue"] == "x@contoso.com,y@contoso.com"
+    assert f"WARNING: users file not found yet: {USERS}/users.txt" in out
+
+
+def test_without_rls_settings_the_pipeline_defaults_are_kept(env):
+    fake, lake = env
+    run_installer(fake, lake)
+    parameters = pipeline_parameters(fake, "PL_PerfTest_MultiModel_v3")
+    assert (parameters["rls_source"]["defaultValue"], parameters["rls_scope"]["defaultValue"],
+            parameters["rls_users"]["defaultValue"], parameters["rls_users_file"]["defaultValue"]) == ("list", "global", "", "")
+
+
+def test_no_warning_when_the_users_files_exist(env):
+    fake, lake = env
+    folder = lake.root / "Files" / "PerfScenarios" / "Users"
+    folder.mkdir(parents=True)
+    (folder / "users.txt").write_text("a@contoso.com\n")
+    (folder / "c.txt").write_text("c@contoso.com\n")
+    models = [{"model_key": "SalesC", "dataset": "Sales C", "queryfile": QUERY, "users_file": f"{USERS}/c.txt"}]
+    _, out = run_installer(fake, lake, MODELS=models, RLS_SOURCE="file", RLS_USERS_FILE=f"{USERS}/users.txt")
+    assert "users file not found" not in out and "VERIFICATION OK" in out
+
+
+def test_a_missing_per_model_file_is_reported_by_name(env):
+    fake, lake = env
+    models = [{"model_key": "SalesC", "dataset": "Sales C", "queryfile": QUERY, "users_file": f"{USERS}/c.txt"}]
+    _, out = run_installer(fake, lake, MODELS=models, RLS_SOURCE="file", RLS_SCOPE="per_model")
+    assert f"users file not found yet: {USERS}/c.txt" in out
+
+
+@pytest.mark.parametrize("parameters,message", [
+    (dict(RLS_SOURCE="database"), "RLS_SOURCE must be"),
+    (dict(RLS_SCOPE="local"), "RLS_SCOPE must be"),
+    (dict(RLS_USERS=["not-a-upn"]), "not a user principal name"),
+    (dict(RLS_USERS_FILE="/tmp/users.txt"), "RLS_USERS_FILE must start with /lakehouse/default/"),
+    (dict(RLS_USERS_FILE=f"{USERS}/my users.txt"), "contain no spaces"),
+    (dict(RLS_SOURCE="file"), "needs RLS_USERS_FILE"),
+    (dict(RLS_SOURCE="file", RLS_SCOPE="per_model"), "needs RLS_USERS_FILE"),
+])
+def test_invalid_rls_defaults_fail_before_anything_is_created(env, parameters, message):
+    fake, lake = env
+    with pytest.raises(ValueError, match=message):
+        run_installer(fake, lake, **parameters)
+    assert fake.items == {}
+
+
+@pytest.mark.parametrize("extra,message", [
+    (dict(users=["bad"]), r"MODELS\[1\].users: 'bad' is not a user principal name"),
+    (dict(users_file="/tmp/u.txt"), r"MODELS\[1\].users_file must start with /lakehouse/default/"),
+    (dict(users_file=f"{USERS}/my file.txt"), "contain no spaces"),
+])
+def test_invalid_users_in_a_model_fail_before_anything_is_created(env, extra, message):
+    fake, lake = env
+    models = [{"model_key": "A", "dataset": "x", "queryfile": QUERY, **extra}]
+    with pytest.raises(ValueError, match=message):
+        run_installer(fake, lake, MODELS=models)
+    assert fake.items == {}
+
+
+def test_per_model_file_source_is_accepted_when_every_model_has_its_file(env):
+    fake, lake = env
+    models = [{"model_key": k, "dataset": k, "queryfile": QUERY, "users_file": f"{USERS}/{k}.txt"} for k in ("A", "B")]
+    _, out = run_installer(fake, lake, MODELS=models, RLS_SOURCE="file", RLS_SCOPE="per_model")
+    assert "VERIFICATION OK" in out
+    assert pipeline_parameters(fake, "PL_PerfTest_MultiModel_v3")["rls_scope"]["defaultValue"] == "per_model"

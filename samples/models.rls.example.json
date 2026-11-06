@@ -1,0 +1,22 @@
+[
+  {
+    "model_key": "SalesA",
+    "dataset": "Sales A",
+    "workspace": "",
+    "queryfile": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData_SalesA.json",
+    "users_file": "/lakehouse/default/Files/PerfScenarios/Users/users_SalesA.txt"
+  },
+  {
+    "model_key": "SalesB",
+    "dataset": "Sales B",
+    "workspace": "",
+    "queryfile": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData_SalesB.json",
+    "users": ["user1@contoso.com", "user2@contoso.com"]
+  },
+  {
+    "model_key": "SalesC",
+    "dataset": "Sales C",
+    "workspace": "",
+    "queryfile": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData_SalesC.json"
+  }
+]

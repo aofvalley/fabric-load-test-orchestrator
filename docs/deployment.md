@@ -18,12 +18,16 @@ The installer notebook deploys the notebooks and pipelines into the workspace **
 3. Attach the lakehouse as the notebook's **default** lakehouse (Explorer → *Add data items*).
 4. **Upload** the zip to `Files/deploy/` of that lakehouse (or change `PACKAGE_PATH`).
 5. Edit the **Parameters** cell:
-   - `MODELS`: list of models (see [samples/models.example.json](../samples/models.example.json)) or `None` to set them later.
+   - `MODELS`: list of models (see [samples/models.example.json](../samples/models.example.json)) or `None` to set them later. Each model may
+     carry `users` or `users_file` (per-model RLS identities).
+   - `RLS_SOURCE`, `RLS_SCOPE`, `RLS_USERS`, `RLS_USERS_FILE` (optional): defaults written into both pipelines. `None` keeps the pipeline
+     default (`list`, `global`, no users). The installer warns if a referenced users file does not exist yet; upload it to
+     `Files/PerfScenarios/Users/` before running. See [RLS identities](parameters.md#rls-identities).
    - `OVERWRITE`: `True` updates items that already exist with the same name; `False` aborts if any exists.
    - `DRY_RUN`: start with `True`; the notebook prints the plan and changes nothing.
-6. **Run all**. With `DRY_RUN = False` the installer creates or updates the items, creates `Files/PerfScenarios/Queries` and
-   `Files/PerfScenarios/logs`, and verifies the result.
-7. Upload one Performance Analyzer JSON per model to `Files/PerfScenarios/Queries/` and open `PL_PerfTest_MultiModel_v3`.
+6. **Run all**. With `DRY_RUN = False` the installer creates or updates the items, creates `Files/PerfScenarios/Queries`,
+   `Files/PerfScenarios/Users` and `Files/PerfScenarios/logs`, and verifies the result.
+7. Upload one Performance Analyzer JSON per model to `Files/PerfScenarios/Queries/` (and the users files to `Files/PerfScenarios/Users/` if you use RLS) and open `PL_PerfTest_MultiModel_v3`.
 
 ## What the verification checks
 
@@ -46,7 +50,9 @@ Names are never used as evidence of a leftover: a workspace or lakehouse may leg
 | `Package not found` | Upload the zip to the lakehouse or fix `PACKAGE_PATH` (relative to the lakehouse root). |
 | `SHA-256 mismatch` | The zip is damaged or was modified; download or build it again. |
 | `already exists and OVERWRITE = False` | Set `OVERWRITE = True` or rename the existing items. |
-| `MODELS[n]: ...` | A model entry is invalid; the installer fails before creating anything. |
+| `MODELS[n]: ...` | A model entry is invalid (also `users` / `users_file`); the installer fails before creating anything. |
+| `RLS_SOURCE = 'file' needs RLS_USERS_FILE` | Give the global file, or use `RLS_SCOPE = 'per_model'` with a `users_file` in every model. |
+| `WARNING: users file not found yet` | Upload the file to `Files/PerfScenarios/Users/` before running with `rls_source = 'file'`. |
 | `ItemDisplayNameNotAvailableYet` | A just-deleted item still reserves its name; wait a few minutes and run again. |
 | HTTP 403 | The identity is not Contributor in the workspace. |
 | Pipeline error `WorkspaceNotFound` | The pipeline still holds an id of another workspace: it was imported manually. Use the installer instead. |

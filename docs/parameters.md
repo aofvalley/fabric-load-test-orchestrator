@@ -19,7 +19,10 @@ When you schedule or trigger a pipeline, names must match **exactly**; Fabric ig
 | `fallback_think_time_sec` | Float | `0.0` | Pause between queries if the file has no `User Action` events |
 | `ramp_up_sec` | Float | `0.0` | Window over which the users of a level start |
 | `initial_user_jitter_sec` | Float | `0.0` | Random extra delay before each user's first action |
-| `rls_users` | String | empty | Comma-separated UPNs for `EffectiveUserName` |
+| `rls_source` | String | `list` | Where the impersonated identities come from: `list`, `file` or `none` (see *RLS identities*) |
+| `rls_scope` | String | `global` | `global`: the same identities for every model; `per_model`: each model uses its own (`users` / `users_file` of its `models` item) |
+| `rls_users` | String | empty | Global list: comma-separated UPNs for `EffectiveUserName` |
+| `rls_users_file` | String | empty | Global text file with one UPN per line, for example `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
 
 The notebooks default to think times **off**, which reproduces the original tool; the pipelines default to **on**.
 
@@ -31,6 +34,58 @@ The notebooks default to think times **off**, which reproduces the original tool
 | `dataset` | Exact name of the semantic model |
 | `workspace` | Workspace of the model; empty = the workspace where the test runs |
 | `queryfile` | Path in the default lakehouse, starting with `/lakehouse/default/`, no spaces |
+| `users` | Optional. List of UPNs (or a comma-separated string) for this model. Used with `rls_source = list` and `rls_scope = per_model` |
+| `users_file` | Optional. Text file with the UPNs of this model. Used with `rls_source = file` and `rls_scope = per_model` |
+
+## RLS identities
+
+Row-level security is tested by impersonating users (`EffectiveUserName`). Two switches decide **where the users come from** and
+**which models they apply to**, in the same way `enable_think_times` switches the think times:
+
+| `rls_source` | `rls_scope = global` (default) | `rls_scope = per_model` |
+|---|---|---|
+| `list` (default) | `rls_users` for every model | `users` of the model's item; if the item has none, `rls_users` |
+| `file` | `rls_users_file` for every model | `users_file` of the model's item; if the item has none, `rls_users_file` |
+| `none` | no impersonation | no impersonation |
+
+- The default (`list`, `global`, empty `rls_users`) means **no impersonation**: the identity that runs the test is used, exactly as before.
+- With `per_model`, a model that defines nothing falls back to the global value; the notebook log states which source was used for each run.
+- If `rls_source = file` and no file is given, or the file does not exist or has no users, the run fails before any query is sent.
+- The identities are spread across the virtual users in turn (`user[i % number_of_users]`). With more virtual users than identities they are reused.
+- The log prints how many identities were found and where they come from, **never the UPNs themselves**.
+
+### Users file format
+
+```text
+# one user principal name per line
+user1@contoso.com
+user2@contoso.com   # trailing comments are fine
+```
+
+Blank lines and `#` comments are ignored, commas or semicolons also separate users, duplicates are removed ignoring case (the first spelling
+is kept), a UTF-8 BOM is accepted, and any other line is rejected with its line number. See [samples/users.example.txt](../samples/users.example.txt).
+
+### Examples
+
+Same users for all models, from a file:
+
+```json
+{"rls_source": "file", "rls_scope": "global", "rls_users_file": "/lakehouse/default/Files/PerfScenarios/Users/users.txt"}
+```
+
+One file per model (a model without `users_file` uses `rls_users_file` if it is set, otherwise the run fails):
+
+```json
+{"rls_source": "file", "rls_scope": "per_model", "models": [
+  {"model_key": "SalesA", "dataset": "Sales A", "workspace": "", "queryfile": "...", "users_file": "/lakehouse/default/Files/PerfScenarios/Users/users_SalesA.txt"},
+  {"model_key": "SalesB", "dataset": "Sales B", "workspace": "", "queryfile": "...", "users_file": "/lakehouse/default/Files/PerfScenarios/Users/users_SalesB.txt"}
+]}
+```
+
+Short lists inside `models` (`rls_source = list`, `rls_scope = per_model`): see [samples/models.rls.example.json](../samples/models.rls.example.json).
+The item of each model is passed to the notebook as a JSON string (`model_settings`), so keep long lists in a file rather than in `users`.
+
+Users that do not exist or have no read and build permission on the model make the queries of that virtual user fail.
 
 ## Think times
 
