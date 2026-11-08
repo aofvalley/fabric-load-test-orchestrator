@@ -1,0 +1,337 @@
+{
+ "gate_version": "0.1.0",
+ "evaluated_utc": "2026-11-05T08:58:45.445823Z",
+ "context": {
+  "run_id": "demo-20261104-101500",
+  "dataset": "Ventas",
+  "item_id": "11111111-2222-3333-4444-555555555555",
+  "requested_by": "equipo-bi",
+  "source_ref": "fabric-app"
+ },
+ "verdict": "FAIL",
+ "promotable": false,
+ "areas": {
+  "model_review": "FAIL",
+  "load_test": "FAIL",
+  "capacity": "FAIL"
+ },
+ "counts": {
+  "PASS": 7,
+  "FAIL": 5,
+  "WARN": 4
+ },
+ "checks": [
+  {
+   "id": "model_review.bpa_errors",
+   "area": "model_review",
+   "status": "PASS",
+   "title": "Reglas BPA de severidad Error",
+   "detail": "0 violaciones (máximo 0).",
+   "evidence": {
+    "count": 0,
+    "rules": []
+   }
+  },
+  {
+   "id": "model_review.bpa_warnings",
+   "area": "model_review",
+   "status": "PASS",
+   "title": "Reglas BPA de severidad Warning",
+   "detail": "4 violaciones (máximo recomendado 30).",
+   "evidence": {
+    "count": 4
+   }
+  },
+  {
+   "id": "model_review.blocking_rules",
+   "area": "model_review",
+   "status": "FAIL",
+   "title": "Reglas bloqueantes del equipo",
+   "detail": "Do not use floating point data types",
+   "evidence": {
+    "rules": [
+     "Do not use floating point data types"
+    ]
+   }
+  },
+  {
+   "id": "model_review.memory",
+   "area": "model_review",
+   "status": "PASS",
+   "title": "Memoria del modelo frente al límite de F64",
+   "detail": "3200 MB = 12 % del máximo por modelo (25 GB). El refresco completo puede necesitar el doble.",
+   "evidence": {
+    "model_size_mb": 3200.0,
+    "pct_of_sku_limit": 12.5,
+    "sku": "F64"
+   }
+  },
+  {
+   "id": "model_review.heavy_columns",
+   "area": "model_review",
+   "status": "WARN",
+   "title": "Columnas que dominan el tamaño del modelo",
+   "detail": "Hechos[IdTransaccion] 34,4 %",
+   "evidence": {
+    "columns": [
+     {
+      "table": "Hechos",
+      "column": "IdTransaccion",
+      "size_mb": 1100.0,
+      "pct_of_model": 34.4,
+      "cardinality": 48000000,
+      "data_type": "String"
+     }
+    ]
+   }
+  },
+  {
+   "id": "load_test.ventas.ramp",
+   "area": "load_test",
+   "status": "PASS",
+   "title": "ventas: cobertura de la rampa",
+   "detail": "Niveles probados 6, 20, 60; objetivo 60 usuarios.",
+   "evidence": {
+    "levels": [
+     6,
+     20,
+     60
+    ],
+    "target_level": 60
+   }
+  },
+  {
+   "id": "load_test.ventas.p95",
+   "area": "load_test",
+   "status": "FAIL",
+   "title": "ventas: p95 con 60 usuarios",
+   "detail": "p95 13,37 s (SLO 4 s).",
+   "evidence": {
+    "level": 60,
+    "p95": 13.3695
+   }
+  },
+  {
+   "id": "load_test.ventas.p50",
+   "area": "load_test",
+   "status": "PASS",
+   "title": "ventas: p50 con 60 usuarios",
+   "detail": "p50 1,04 s (objetivo 1,5 s).",
+   "evidence": {
+    "level": 60,
+    "p50": 1.036
+   }
+  },
+  {
+   "id": "load_test.ventas.errors",
+   "area": "load_test",
+   "status": "FAIL",
+   "title": "ventas: consultas fallidas hasta 60 usuarios",
+   "detail": "10 de 258 (3,9 %; máximo 1 %).",
+   "evidence": {
+    "failed": 10,
+    "expected": 258,
+    "rate": 0.0388
+   }
+  },
+  {
+   "id": "load_test.ventas.scalability",
+   "area": "load_test",
+   "status": "WARN",
+   "title": "ventas: degradación del p95 con la concurrencia",
+   "detail": "p95 ×6,4 de 6 a 60 usuarios (máximo ×3).",
+   "evidence": {
+    "from_level": 6,
+    "to_level": 60,
+    "growth": 6.42
+   }
+  },
+  {
+   "id": "load_test.ventas.sustained",
+   "area": "load_test",
+   "status": "WARN",
+   "title": "ventas: nivel sostenido dentro del SLO",
+   "detail": "6 usuarios concurrentes cumplen p95 y errores.",
+   "evidence": {
+    "sustained_level": 6
+   }
+  },
+  {
+   "id": "capacity.utilization",
+   "area": "capacity",
+   "status": "FAIL",
+   "title": "Pico de utilización de la capacidad",
+   "detail": "86,4 % (máximo 80 %); media 51,0 %.",
+   "evidence": {
+    "peak": 86.4,
+    "avg": 51.0
+   }
+  },
+  {
+   "id": "capacity.interactive_delay",
+   "area": "capacity",
+   "status": "WARN",
+   "title": "Throttling interactivo (retraso)",
+   "detail": "Pico 92,0 % del umbral de retraso (100 % = las consultas interactivas se retrasan).",
+   "evidence": {
+    "peak": 92.0
+   }
+  },
+  {
+   "id": "capacity.interactive_rejection",
+   "area": "capacity",
+   "status": "PASS",
+   "title": "Throttling interactivo (rechazo)",
+   "detail": "Pico 12,0 % del umbral de rechazo (100 % = se rechazan consultas).",
+   "evidence": {
+    "peak": 12.0
+   }
+  },
+  {
+   "id": "capacity.model_operations",
+   "area": "capacity",
+   "status": "FAIL",
+   "title": "Operaciones fallidas o rechazadas del modelo",
+   "detail": "3 fallidas, 0 rechazadas, 1,5 min de throttling (día completo).",
+   "evidence": {
+    "failed": 3,
+    "rejected": 0
+   }
+  },
+  {
+   "id": "capacity.tooling_share",
+   "area": "capacity",
+   "status": "PASS",
+   "title": "Consumo del propio generador de carga",
+   "detail": "Los notebooks del test suponen el 7,5 % del CU del día en la capacidad. Si comparten capacidad con el modelo, contaminan la medida.",
+   "evidence": {
+    "share_pct": 7.5
+   }
+  }
+ ],
+ "advice": [
+  {
+   "area": "model_review",
+   "priority": 1,
+   "title": "BPA: Do not use floating point data types",
+   "action": "Cambia las columnas Double a Decimal fijo (Currency) o entero: comprimen mejor y evitan errores de redondeo.",
+   "evidence": "2 objeto(s): 'Hechos'[Importe], 'Hechos'[Coste] (Warning, Performance)",
+   "reference": "https://learn.microsoft.com/power-bi/connect-data/desktop-data-types"
+  },
+  {
+   "area": "model_review",
+   "priority": 1,
+   "title": "BPA: Set IsAvailableInMdx to false on non-attribute columns",
+   "action": "Pon IsAvailableInMDX = false en columnas que no se usan como atributo: reduce memoria y procesado.",
+   "evidence": "1 objeto(s): 'Hechos'[IdTransaccion] (Warning, Performance)",
+   "reference": ""
+  },
+  {
+   "area": "model_review",
+   "priority": 1,
+   "title": "Columna pesada Hechos[IdTransaccion]",
+   "action": "Quítala si no se usa; si es clave de texto o GUID, sustitúyela por un entero; si es fecha y hora, sepárala; reduce decimales.",
+   "evidence": "1100 MB, 34,4 % del modelo, cardinalidad 48000000",
+   "reference": ""
+  },
+  {
+   "area": "load_test",
+   "priority": 1,
+   "title": "ventas: «Matriz detalle» se degrada con la concurrencia",
+   "action": "Contención: la consulta pasa mucho tiempo en el formula engine (un hilo por consulta). Reduce iteradores sobre tablas grandes, materializa en el origen o usa agregaciones; mira Server Timings en DAX Studio.",
+   "evidence": "p95 2,10 s → 13,88 s (×6,6) con 60 usuarios",
+   "reference": ""
+  },
+  {
+   "area": "load_test",
+   "priority": 1,
+   "title": "ventas: sostiene 6 usuarios de 60",
+   "action": "Optimiza las consultas de la lista y repite la rampa; si ya están optimizadas, dimensiona el SKU con la utilización medida en Capacity Metrics.",
+   "evidence": "p95 13,37 s con 60 usuarios",
+   "reference": ""
+  },
+  {
+   "area": "load_test",
+   "priority": 1,
+   "title": "ventas: consultas fallidas en la rampa",
+   "action": "Timeouts o rechazos por throttling. Corrige antes de comparar latencias; con el orquestador anterior a 3.4.0 un usuario que falla pierde todas sus filas.",
+   "evidence": "AdomdErrorResponseException: The operation was throttled; user <upn>; Data Source=powerbi://api.powerbi.com/v1.0/myorg/ws;Password=<redacted>;EffectiveUserName=<upn>  : The operation was throttled",
+   "reference": ""
+  },
+  {
+   "area": "capacity",
+   "priority": 1,
+   "title": "Capacidad al límite durante el test",
+   "action": "Optimiza las operaciones con más CU del modelo; si es carga legítima, escala el SKU o activa surge protection para proteger los informes interactivos.",
+   "evidence": "pico 86,4 %",
+   "reference": "https://learn.microsoft.com/fabric/enterprise/surge-protection"
+  },
+  {
+   "area": "capacity",
+   "priority": 1,
+   "title": "Throttling interactivo cerca o activo",
+   "action": "El smoothing de 10 minutos ya no absorbe la carga: reduce CU por consulta o reparte el pico.",
+   "evidence": "retraso interactivo 92,0 % del umbral",
+   "reference": "https://learn.microsoft.com/fabric/enterprise/throttling"
+  },
+  {
+   "area": "model_review",
+   "priority": 2,
+   "title": "BPA: Use the DIVIDE function for division",
+   "action": "Usa DIVIDE() en vez del operador / para las divisiones con posible denominador cero.",
+   "evidence": "1 objeto(s): Margen % (Warning, DAX Expressions)",
+   "reference": ""
+  },
+  {
+   "area": "model_review",
+   "priority": 3,
+   "title": "BPA: Provide format string for measures",
+   "action": "Las medidas visibles deberían tener formato.",
+   "evidence": "1 objeto(s): Ventas (Info, Formatting)",
+   "reference": ""
+  },
+  {
+   "area": "capacity",
+   "priority": 3,
+   "title": "Operación con más CU del modelo: Query",
+   "action": "Úsala como línea base de CU para comparar la próxima versión del modelo.",
+   "evidence": "5100 CU(s) en 2280 operaciones (2,24 CU(s) por operación)",
+   "reference": ""
+  }
+ ],
+ "config": {
+  "model_review": {
+   "max_errors": 0,
+   "max_warnings": 30,
+   "blocking_rules": [
+    "Do not use floating point data types",
+    "Check if bi-directional and many-to-many relationships are valid"
+   ],
+   "ignored_rules": [],
+   "sku": "F64",
+   "max_model_memory_pct_of_sku": 50,
+   "max_column_pct_of_model": 20
+  },
+  "load_test": {
+   "target_level": 60,
+   "p50_sec": 1.5,
+   "p95_sec": 4.0,
+   "max_error_rate": 0.01,
+   "max_p95_growth_ratio": 3.0,
+   "slow_query_sec": 5.0,
+   "min_levels": 2
+  },
+  "capacity": {
+   "required": true,
+   "max_utilization_pct": 80,
+   "warn_interactive_delay_pct": 80,
+   "max_interactive_delay_pct": 100,
+   "warn_interactive_rejection_pct": 50,
+   "max_model_failed_operations": 0,
+   "max_tooling_cu_share_pct": 25
+  },
+  "verdict": {
+   "warn_blocks_promotion": false
+  }
+ }
+}

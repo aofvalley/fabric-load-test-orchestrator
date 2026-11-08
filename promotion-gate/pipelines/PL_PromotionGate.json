@@ -1,0 +1,489 @@
+{
+  "properties": {
+    "description": "Gate de promoción de modelos semánticos: BPA y VertiPaq, test de carga con PL_PerfTest_MultiModel_v3, Capacity Metrics y veredicto. Falla si el modelo no es promocionable.",
+    "activities": [
+      {
+        "name": "Set_RunId",
+        "type": "SetVariable",
+        "dependsOn": [],
+        "policy": {
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "variableName": "run_id",
+          "value": {
+            "value": "@if(empty(pipeline().parameters.run_id), pipeline().RunId, pipeline().parameters.run_id)",
+            "type": "Expression"
+          }
+        }
+      },
+      {
+        "name": "NB_Gate_ModelReview",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "Set_RunId",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.06:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "{{NOTEBOOK:NB_Gate_ModelReview}}",
+          "workspaceId": "{{WORKSPACE_ID}}",
+          "parameters": {
+            "_inlineInstallationEnabled": {
+              "value": true,
+              "type": "bool"
+            },
+            "run_id": {
+              "value": {
+                "value": "@variables('run_id')",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "gate_config": {
+              "value": {
+                "value": "@pipeline().parameters.gate_config",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "dataset": {
+              "value": {
+                "value": "@pipeline().parameters.dataset",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "model_workspace": {
+              "value": {
+                "value": "@pipeline().parameters.model_workspace",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "name": "If_ReviewAllowsLoadTest",
+        "type": "IfCondition",
+        "dependsOn": [
+          {
+            "activity": "NB_Gate_ModelReview",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@or(not(pipeline().parameters.stop_on_review_fail), not(equals(json(activity('NB_Gate_ModelReview').output.result.exitValue).status, 'FAIL')))",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "name": "Run_LoadTest",
+              "type": "ExecutePipeline",
+              "dependsOn": [],
+              "policy": {
+                "secureInput": false
+              },
+              "typeProperties": {
+                "pipeline": {
+                  "referenceName": "{{PIPELINE:PL_PerfTest_MultiModel_v3}}",
+                  "type": "PipelineReference"
+                },
+                "waitOnCompletion": true,
+                "parameters": {
+                  "models": {
+                    "value": "@json(concat('[{\"model_key\":\"', pipeline().parameters.model_key, '\",\"dataset\":\"', pipeline().parameters.dataset, '\",\"workspace\":\"', pipeline().parameters.model_workspace, '\",\"queryfile\":\"', pipeline().parameters.queryfile, '\"}]'))",
+                    "type": "Expression"
+                  },
+                  "test_name_prefix": {
+                    "value": "@concat('gate-', variables('run_id'))",
+                    "type": "Expression"
+                  },
+                  "ramp_levels": {
+                    "value": "@pipeline().parameters.ramp_levels",
+                    "type": "Expression"
+                  },
+                  "iterations": {
+                    "value": "@pipeline().parameters.iterations",
+                    "type": "Expression"
+                  },
+                  "enable_think_times": {
+                    "value": "@pipeline().parameters.enable_think_times",
+                    "type": "Expression"
+                  },
+                  "think_time_scale": {
+                    "value": "@pipeline().parameters.think_time_scale",
+                    "type": "Expression"
+                  },
+                  "ramp_up_sec": {
+                    "value": "@pipeline().parameters.ramp_up_sec",
+                    "type": "Expression"
+                  },
+                  "rls_users": {
+                    "value": "@pipeline().parameters.rls_users",
+                    "type": "Expression"
+                  },
+                  "rls_source": {
+                    "value": "@if(not(empty(pipeline().parameters.rls_users_file)), 'file', if(not(empty(pipeline().parameters.rls_users)), 'list', 'none'))",
+                    "type": "Expression"
+                  },
+                  "rls_scope": {
+                    "value": "global",
+                    "type": "Expression"
+                  },
+                  "rls_users_file": {
+                    "value": "@pipeline().parameters.rls_users_file",
+                    "type": "Expression"
+                  }
+                }
+              }
+            },
+            {
+              "name": "NB_Gate_LoadTestReport",
+              "type": "TridentNotebook",
+              "dependsOn": [
+                {
+                  "activity": "Run_LoadTest",
+                  "dependencyConditions": [
+                    "Completed"
+                  ]
+                }
+              ],
+              "policy": {
+                "timeout": "0.06:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureOutput": false,
+                "secureInput": false
+              },
+              "typeProperties": {
+                "notebookId": "{{NOTEBOOK:NB_Gate_LoadTestReport}}",
+                "workspaceId": "{{WORKSPACE_ID}}",
+                "parameters": {
+                  "_inlineInstallationEnabled": {
+                    "value": true,
+                    "type": "bool"
+                  },
+                  "run_id": {
+                    "value": {
+                      "value": "@variables('run_id')",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "gate_config": {
+                    "value": {
+                      "value": "@pipeline().parameters.gate_config",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "run_prefix": {
+                    "value": {
+                      "value": "@concat('gate-', variables('run_id'))",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "name": "NB_Gate_CapacityMetrics",
+              "type": "TridentNotebook",
+              "dependsOn": [
+                {
+                  "activity": "NB_Gate_LoadTestReport",
+                  "dependencyConditions": [
+                    "Completed"
+                  ]
+                }
+              ],
+              "policy": {
+                "timeout": "0.06:00:00",
+                "retry": 0,
+                "retryIntervalInSeconds": 30,
+                "secureOutput": false,
+                "secureInput": false
+              },
+              "typeProperties": {
+                "notebookId": "{{NOTEBOOK:NB_Gate_CapacityMetrics}}",
+                "workspaceId": "{{WORKSPACE_ID}}",
+                "parameters": {
+                  "_inlineInstallationEnabled": {
+                    "value": true,
+                    "type": "bool"
+                  },
+                  "run_id": {
+                    "value": {
+                      "value": "@variables('run_id')",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "gate_config": {
+                    "value": {
+                      "value": "@pipeline().parameters.gate_config",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "capacity_metrics_workspace": {
+                    "value": {
+                      "value": "@pipeline().parameters.capacity_metrics_workspace",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "capacity_metrics_dataset": {
+                    "value": {
+                      "value": "@pipeline().parameters.capacity_metrics_dataset",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "capacity_id": {
+                    "value": {
+                      "value": "@pipeline().parameters.capacity_id",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "model_workspace": {
+                    "value": {
+                      "value": "@pipeline().parameters.model_workspace",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "tooling_workspace_id": {
+                    "value": {
+                      "value": "@pipeline().parameters.tooling_workspace_id",
+                      "type": "Expression"
+                    },
+                    "type": "string"
+                  },
+                  "max_extra_wait_minutes": {
+                    "value": {
+                      "value": "@pipeline().parameters.metrics_lag_minutes",
+                      "type": "Expression"
+                    },
+                    "type": "int"
+                  }
+                }
+              }
+            }
+          ],
+          "ifFalseActivities": []
+        }
+      },
+      {
+        "name": "NB_Gate_Verdict",
+        "type": "TridentNotebook",
+        "dependsOn": [
+          {
+            "activity": "If_ReviewAllowsLoadTest",
+            "dependencyConditions": [
+              "Completed"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.06:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "notebookId": "{{NOTEBOOK:NB_Gate_Verdict}}",
+          "workspaceId": "{{WORKSPACE_ID}}",
+          "parameters": {
+            "_inlineInstallationEnabled": {
+              "value": true,
+              "type": "bool"
+            },
+            "run_id": {
+              "value": {
+                "value": "@variables('run_id')",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "gate_config": {
+              "value": {
+                "value": "@pipeline().parameters.gate_config",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "dataset": {
+              "value": {
+                "value": "@pipeline().parameters.dataset",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "requested_by": {
+              "value": {
+                "value": "@pipeline().parameters.requested_by",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "source_ref": {
+              "value": {
+                "value": "@pipeline().parameters.source_ref",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "name": "If_NotPromotable",
+        "type": "IfCondition",
+        "dependsOn": [
+          {
+            "activity": "NB_Gate_Verdict",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ],
+        "typeProperties": {
+          "expression": {
+            "value": "@not(json(activity('NB_Gate_Verdict').output.result.exitValue).promotable)",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [
+            {
+              "name": "Fail_Gate",
+              "type": "Fail",
+              "dependsOn": [],
+              "typeProperties": {
+                "message": {
+                  "value": "@concat('Gate de promoción: ', json(activity('NB_Gate_Verdict').output.result.exitValue).verdict, '. Informe en ', json(activity('NB_Gate_Verdict').output.result.exitValue).report)",
+                  "type": "Expression"
+                },
+                "errorCode": "GATE_NOT_PROMOTABLE"
+              }
+            }
+          ],
+          "ifFalseActivities": []
+        }
+      }
+    ],
+    "parameters": {
+      "run_id": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "dataset": {
+        "type": "String",
+        "defaultValue": "CHANGE_ME_SEMANTIC_MODEL_NAME"
+      },
+      "model_workspace": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "model_key": {
+        "type": "String",
+        "defaultValue": "model"
+      },
+      "queryfile": {
+        "type": "String",
+        "defaultValue": "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData.json"
+      },
+      "ramp_levels": {
+        "type": "Array",
+        "defaultValue": [
+          1,
+          5,
+          10
+        ]
+      },
+      "iterations": {
+        "type": "Int",
+        "defaultValue": 1
+      },
+      "enable_think_times": {
+        "type": "Bool",
+        "defaultValue": true
+      },
+      "think_time_scale": {
+        "type": "Float",
+        "defaultValue": 1.0
+      },
+      "ramp_up_sec": {
+        "type": "Float",
+        "defaultValue": 0.0
+      },
+      "rls_users": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "rls_users_file": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "stop_on_review_fail": {
+        "type": "Bool",
+        "defaultValue": true
+      },
+      "metrics_lag_minutes": {
+        "type": "Int",
+        "defaultValue": 20
+      },
+      "capacity_metrics_workspace": {
+        "type": "String",
+        "defaultValue": "CHANGE_ME_CAPACITY_METRICS_WORKSPACE"
+      },
+      "capacity_metrics_dataset": {
+        "type": "String",
+        "defaultValue": "Fabric Capacity Metrics"
+      },
+      "capacity_id": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "tooling_workspace_id": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "gate_config": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "requested_by": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "source_ref": {
+        "type": "String",
+        "defaultValue": ""
+      }
+    },
+    "variables": {
+      "run_id": {
+        "type": "String"
+      }
+    }
+  }
+}

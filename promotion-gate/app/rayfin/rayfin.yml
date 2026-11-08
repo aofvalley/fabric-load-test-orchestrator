@@ -1,0 +1,26 @@
+id: semantic-model-promotion-gate
+name: Gate de promoción de modelos
+version: 0.1.0
+services:
+  auth:
+    enabled: true
+    fabric:
+      enabled: true
+    allowedRedirectUris:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
+      # Añade aquí la URL de la app que imprime `npx rayfin up` (https://<nombre>.webapp.fabricapps.net)
+  data:
+    enabled: true
+    dialect: mssql
+  staticHosting:
+    enabled: true
+    root: .
+    folder: dist
+    buildCommand: npm run build
+    indexDocument: index.html
+    assetAccess: protected
+  storage:
+    enabled: false
+  functions:
+    enabled: false

@@ -22,3 +22,25 @@ jobs:
         with:
           name: FabricLoadTest_v3_package
           path: dist/FabricLoadTest_v3_package.zip
+
+  promotion-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: promotion-gate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e ".[cli,dev]"
+      - run: python -m pytest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: promotion-gate/app/package-lock.json
+      - run: npm ci
+        working-directory: promotion-gate/app
+      - run: npm run typecheck && npm test && npm run build
+        working-directory: promotion-gate/app

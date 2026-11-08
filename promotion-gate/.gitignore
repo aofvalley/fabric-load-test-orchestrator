@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+*.log
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+out/
+
+.venv-demo/
+deploy/.deployment.json
