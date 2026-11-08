@@ -28,7 +28,7 @@ With `write_results_to_tables = true` the same data is in the Delta tables `load
 
 A query that fails (timeout, throttling, RLS error...) is recorded as a row with `status = error` and its message in `error`;
 the virtual user goes on with the next query. Queries 1 and 8 count them and query 8 leaves them out of the percentiles.
-A growing `error_rate` with the level is a capacity or model limit, as important as the latency. Runs written before 3.3.0 have
+A growing `error_rate` with the level is a capacity or model limit, as important as the latency. Runs written before 3.4.0 have
 no `status` column and are read as all successful.
 
 ## Reading query 8 (latency per level)

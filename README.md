@@ -107,6 +107,7 @@ and [RLS identities](docs/parameters.md#rls-identities).
 | `rls_scope` | `global` | `global`: same identities for every model; `per_model`: `users` / `users_file` in each `models` item |
 | `rls_users` | empty | Global list of UPNs to impersonate (`EffectiveUserName`), comma-separated |
 | `rls_users_file` | empty | Global text file with the UPNs, e.g. `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
+| `stop_on_query_error` | `false` | `true`: a virtual user stops at its first failed query (behaviour before 3.4.0). By default the failed query is a `status = error` row and the user goes on |
 | `write_results_to_tables` | `false` | Also append each run to the Delta tables `loadtest_runs` and `loadtest_queries` |
 
 All parameters, their effect and recommendations: [docs/parameters.md](docs/parameters.md). Field-by-field reference of the

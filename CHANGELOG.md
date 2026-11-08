@@ -2,17 +2,26 @@
 
 ## 3.4.0
 
-- `RunLoadTest_v3` writes `summary.json` in every run folder and exits with it (`notebookutils.notebook.exit`): latency
+**Behaviour change: a failed query no longer ends the virtual user.** Until 3.3.0 an exception in a query ended that virtual user,
+its CSV was never written and the run lost every row of that user. From 3.4.0 the failed query is recorded as a row with
+`status = error`, `rows = 0` and the error message (token redacted), a line is added to `error.log`, the connection is reopened if the
+error closed it and the user continues with the next query. The CSV is written in `finally`, so partial results always survive.
+Set `stop_on_query_error = true` to stop the user at its first failed query as before (its rows and CSV are still kept).
+
+- **Result schema:** the user CSV files gain two columns, `status` (`ok` or `error`) and `error`. `AnalyzeLoadTest_v3` (queries 1 and 8)
+  and `summary.json` count failed queries and compute latency percentiles over successful queries only. Runs without the `status`
+  column (3.3.0 and earlier) are read as successful.
+- **Run summary:** `RunLoadTest_v3` writes `summary.json` in every run folder and exits with it (`notebookutils.notebook.exit`): latency
   percentiles of the successful queries, failed queries, lost virtual users, error rate, throughput and UTC window. A failed
   `runMultiple` still leaves `summary.json` with the error before the notebook fails.
 - New parameter `write_results_to_tables` (notebook and both pipelines, default `false`): appends each run to the Delta tables
   `loadtest_runs` and `loadtest_queries` of the default lakehouse, with explicit schemas.
-- `RunPerfScenario_v3`: a failed query no longer ends the virtual user. It is recorded as a row with `status = error`, `rows = 0`
-  and the error message (token redacted), a line is added to `error.log`, the connection is reopened if it was closed and
-  the user continues. New CSV columns `status` and `error`. The CSV is written in `finally`, so partial results survive.
-  The ADOMD `DataReader` is always closed.
-- `AnalyzeLoadTest_v3`: queries 1 and 8 count failed queries; query 8 computes the percentiles over successful queries.
-  Runs without the `status` column are read as successful.
+- New parameter `stop_on_query_error` (both notebooks and both pipelines, default `false`), see above.
+- **ADOMD authentication:** `RunPerfScenario_v3` authenticates like semantic-link (`refresh_tom_access_token` plus an
+  `OnAccessTokenExpired` callback). On some capacity and region combinations the `pbi` token passed as `password=` fails with
+  "Authentication failed for all authenticators" while sempy works; without sempy the notebook falls back to the previous form. The
+  token is no longer part of the logged connection string. `EffectiveUserName` (RLS) keeps working.
+- `RunPerfScenario_v3`: the ADOMD `DataReader` is always closed.
 - `RunLoadTest_v3`: the polars consolidation accepts CSV files with different columns.
 
 ## 3.3.0

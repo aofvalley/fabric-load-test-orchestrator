@@ -86,6 +86,10 @@
         "type": "String",
         "defaultValue": ""
       },
+      "stop_on_query_error": {
+        "type": "Bool",
+        "defaultValue": false
+      },
       "write_results_to_tables": {
         "type": "Bool",
         "defaultValue": false
@@ -250,6 +254,13 @@
                       "type": "Expression"
                     },
                     "type": "string"
+                  },
+                  "stop_on_query_error": {
+                    "value": {
+                      "value": "@pipeline().parameters.stop_on_query_error",
+                      "type": "Expression"
+                    },
+                    "type": "bool"
                   },
                   "write_results_to_tables": {
                     "value": {

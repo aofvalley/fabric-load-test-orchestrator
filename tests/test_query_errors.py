@@ -145,3 +145,22 @@ def test_the_reader_is_closed_even_if_reading_fails():
 
 def test_scenario_notebook_still_has_four_code_cells():
     assert len(code_cells(load_notebook(NOTEBOOKS / "RunPerfScenario_v3.ipynb"))) == 4
+
+
+def test_stop_on_query_error_restores_fail_fast_but_keeps_the_rows(fake_fabric, tmp_path, monkeypatch):
+    failing_every(monkeypatch, 3, "Timeout expired")
+    with pytest.raises(RuntimeError, match="stop_on_query_error"):
+        run_scenario_user(tmp_path, loadtestId="run-stop", iterations=2, stop_on_query_error=True, **BASE)
+    rows = read_rows(tmp_path, "run-stop")
+    assert len(rows) == 3, "the user stops at its first failed query (the third), after recording it"
+    assert [r["status"] for r in rows] == ["ok", "ok", "error"]
+
+
+def test_stop_on_query_error_is_forwarded_by_both_pipelines_and_the_driver():
+    from helpers import ROOT
+    ramp = json.loads((ROOT / "pipelines" / "PL_PerfTest_Ramp_v3.json").read_text(encoding="utf-8"))
+    multi = json.loads((ROOT / "pipelines" / "PL_PerfTest_MultiModel_v3.json").read_text(encoding="utf-8"))
+    assert ramp["properties"]["parameters"]["stop_on_query_error"]["defaultValue"] is False
+    assert multi["properties"]["parameters"]["stop_on_query_error"]["defaultValue"] is False
+    driver = "".join("".join(c["source"]) for c in load_notebook(NOTEBOOKS / "RunLoadTest_v3.ipynb")["cells"])
+    assert '"stop_on_query_error" : stop_on_query_error' in driver
