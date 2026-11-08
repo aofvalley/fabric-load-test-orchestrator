@@ -38,6 +38,8 @@ PL_PerfTest_MultiModel_v3  ──ForEach (parallel)──►  PL_PerfTest_Ramp_v
 | [`rls_scope`](#rls-identities) | String | `global` | `global` or `per_model` |
 | [`rls_users`](#rls-identities) | String | empty | Global list of UPNs, comma-separated |
 | [`rls_users_file`](#rls-identities) | String | empty | Global text file with the UPNs |
+| [`stop_on_query_error`](#results) | Bool | `false` | `true`: a virtual user stops at its first failed query (behaviour before 3.4.0) |
+| [`write_results_to_tables`](#results) | Bool | `false` | Also append each run to the Delta tables `loadtest_runs` and `loadtest_queries` |
 
 ## `models`
 
@@ -230,6 +232,17 @@ Switching quickly between two ways of providing users without editing the models
 `users` / `users_file` inside `models` are **ignored while `rls_scope = global`**, and the file settings are ignored while `rls_source = list`
 (and vice versa), so you can keep all of them in place and only flip the two switches.
 
+## Results
+
+Every run folder (`Files/PerfScenarios/logs/<test>-c<level>-<timestamp>/`) has one CSV per virtual user and a `summary.json` with the
+latency percentiles of the successful queries, the failed queries, the lost virtual users and the UTC window. `RunLoadTest_v3` also
+returns that summary as its exit value.
+
+| Parameter | Values | What it does |
+|---|---|---|
+| `stop_on_query_error` | `false` (default), `true` | `false`: a failed query (timeout, throttling, RLS) is a row with `status = error` and the user carries on. `true`: the user stops at its first failed query. Its CSV is written in both cases |
+| `write_results_to_tables` | `false` (default), `true` | Also append each run to the Delta tables `loadtest_runs` (one row per run) and `loadtest_queries` (one row per query) of the default lakehouse |
+
 ## Complete example
 
 Two models in parallel, ramp of 6, 20 and 60 users, recorded pace with a 30-second start window, one users file per model:
@@ -287,3 +300,4 @@ You only fill in the parent. The child pipeline can also be run alone for one mo
 | `rls_source = 'file' but no file was given` | `rls_users_file` is empty and the model has no `users_file`. |
 | Queries of one virtual user fail with RLS | The impersonated user does not exist or has no read and build permission on that model. |
 | `concurrent_threads out of range` | A value of `ramp_levels` is outside 1–300. |
+| `summary.json` shows `failed_queries` > 0 | Queries failed during the run; their messages are in the `error` column of the user CSV and in `error.log`. |
