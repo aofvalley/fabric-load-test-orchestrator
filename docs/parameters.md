@@ -27,6 +27,7 @@ When you schedule or trigger a pipeline, names must match **exactly**; Fabric ig
 | `rls_users` | String | empty | Global list: comma-separated UPNs for `EffectiveUserName` |
 | `rls_users_file` | String | empty | Global text file with one UPN per line, for example `/lakehouse/default/Files/PerfScenarios/Users/users.txt` |
 | `stop_on_query_error` | Bool | `false` | `true`: a virtual user stops at its first failed query, as before 3.4.0 (its rows and CSV are kept). `false`: the failed query is a row with `status = error` and the user continues |
+| `fail_on_error_rate` | Float | `1.0` | After writing `summary.json` and the tables, fail the notebook when the run's error rate (0 to 1) is above it. `1.0` never fails, `0` fails on any failed query. Without it a run with failed queries ends Completed |
 | `write_results_to_tables` | Bool | `false` | Append each run to the Delta tables `loadtest_runs` and `loadtest_queries` of the default lakehouse |
 
 The notebooks default to think times **off**, which reproduces the original tool; the pipelines default to **on**.

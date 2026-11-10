@@ -164,3 +164,14 @@ def test_stop_on_query_error_is_forwarded_by_both_pipelines_and_the_driver():
     assert multi["properties"]["parameters"]["stop_on_query_error"]["defaultValue"] is False
     driver = "".join("".join(c["source"]) for c in load_notebook(NOTEBOOKS / "RunLoadTest_v3.ipynb")["cells"])
     assert '"stop_on_query_error" : stop_on_query_error' in driver
+
+
+def test_fail_on_error_rate_is_forwarded_by_both_pipelines():
+    from helpers import ROOT
+    for name in ("PL_PerfTest_Ramp_v3.json", "PL_PerfTest_MultiModel_v3.json"):
+        text = (ROOT / "pipelines" / name).read_text(encoding="utf-8")
+        pipeline = json.loads(text)
+        assert pipeline["properties"]["parameters"]["fail_on_error_rate"] == {"type": "Float", "defaultValue": 1.0}
+        assert "pipeline().parameters.fail_on_error_rate" in text, f"{name} must forward fail_on_error_rate"
+    driver = "".join("".join(c["source"]) for c in load_notebook(NOTEBOOKS / "RunLoadTest_v3.ipynb")["cells"])
+    assert "fail_on_error_rate = 1.0" in driver

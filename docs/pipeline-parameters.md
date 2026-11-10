@@ -39,6 +39,7 @@ PL_PerfTest_MultiModel_v3  ──ForEach (parallel)──►  PL_PerfTest_Ramp_v
 | [`rls_users`](#rls-identities) | String | empty | Global list of UPNs, comma-separated |
 | [`rls_users_file`](#rls-identities) | String | empty | Global text file with the UPNs |
 | [`stop_on_query_error`](#results) | Bool | `false` | `true`: a virtual user stops at its first failed query (behaviour before 3.4.0) |
+| [`fail_on_error_rate`](#results) | Float | `1.0` | Fail the run when its error rate (0 to 1) is above it |
 | [`write_results_to_tables`](#results) | Bool | `false` | Also append each run to the Delta tables `loadtest_runs` and `loadtest_queries` |
 
 ## `models`
@@ -241,7 +242,10 @@ returns that summary as its exit value.
 | Parameter | Values | What it does |
 |---|---|---|
 | `stop_on_query_error` | `false` (default), `true` | `false`: a failed query (timeout, throttling, RLS) is a row with `status = error` and the user carries on. `true`: the user stops at its first failed query. Its CSV is written in both cases |
-| `write_results_to_tables` | `false` (default), `true` | Also append each run to the Delta tables `loadtest_runs` (one row per run) and `loadtest_queries` (one row per query) of the default lakehouse |
+| `fail_on_error_rate` | `1.0` (default), `0` to `1` | The pipeline ends Completed even when queries failed. Set a threshold so `RunLoadTest_v3` fails (after writing `summary.json` and the tables) when the run's error rate is above it. `0` fails on any failed query |
+| `write_results_to_tables` | `false` (default), `true` | Also append each run to the Delta tables `loadtest_runs` (one row per run) and `loadtest_queries` (one row per query) of the default lakehouse. Written with `deltalake` to the OneLake path; new columns are merged into existing tables (with an old `deltalake` drop the tables when the schema changes) |
+
+A green run can contain failed queries: read `failed_queries` and `error_rate` in `summary.json` or in the exit value, or use `fail_on_error_rate`.
 
 ## Complete example
 

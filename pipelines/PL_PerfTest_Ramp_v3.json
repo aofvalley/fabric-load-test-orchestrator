@@ -90,6 +90,10 @@
         "type": "Bool",
         "defaultValue": false
       },
+      "fail_on_error_rate": {
+        "type": "Float",
+        "defaultValue": 1.0
+      },
       "write_results_to_tables": {
         "type": "Bool",
         "defaultValue": false
@@ -261,6 +265,13 @@
                       "type": "Expression"
                     },
                     "type": "bool"
+                  },
+                  "fail_on_error_rate": {
+                    "value": {
+                      "value": "@pipeline().parameters.fail_on_error_rate",
+                      "type": "Expression"
+                    },
+                    "type": "float"
                   },
                   "write_results_to_tables": {
                     "value": {

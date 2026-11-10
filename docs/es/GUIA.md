@@ -11,9 +11,9 @@
 - Escalonar el arranque de los usuarios (`ramp_up_sec`) y añadir un desfase aleatorio inicial (`initial_user_jitter_sec`).
 - Usar RLS con `rls_source` (`list`, `file`, `none`) y `rls_scope` (`global`, `per_model`): los UPN pueden ir en el parámetro `rls_users`, en un **archivo de texto** (`rls_users_file`, un UPN por línea) o **por modelo** (`users` / `users_file` dentro de cada elemento de `models`).
 - **Desplegar en cualquier workspace** con un notebook instalador y un zip, sin ids fijos.
-- Medir errores de verdad: una consulta que falla (timeout, throttling, RLS) queda como fila con `status = error` y el usuario virtual sigue; su CSV se escribe siempre, aunque el usuario se detenga. Con `stop_on_query_error = true` el usuario se detiene en su primera consulta fallida, como antes de la 3.4.0.
+- Medir errores de verdad: una consulta que falla (timeout, throttling, RLS) queda como fila con `status = error` y el usuario virtual sigue; su CSV se escribe siempre, aunque el usuario se detenga. Con `stop_on_query_error = true` el usuario se detiene en su primera consulta fallida, como antes de la 3.4.0. Ojo: una ejecución en verde puede tener consultas fallidas; míralo en `failed_queries` y `error_rate` de `summary.json`, o fija `fail_on_error_rate` (de 0 a 1) para que el notebook falle por encima de ese porcentaje de errores.
 - Analizar los resultados con `AnalyzeLoadTest_v3` (nueve consultas).
-- Consumir los resultados desde otras herramientas: cada ejecución deja `summary.json` (p50, p95, consultas fallidas, usuarios perdidos) y lo devuelve como *exit value* del notebook; con `write_results_to_tables = true` también se añade a las tablas Delta `loadtest_runs` y `loadtest_queries`.
+- Consumir los resultados desde otras herramientas: cada ejecución deja `summary.json` (p50, p95, consultas fallidas, usuarios perdidos) y lo devuelve como *exit value* del notebook; con `write_results_to_tables = true` también se añade a las tablas Delta `loadtest_runs` y `loadtest_queries` (se escriben con `deltalake` en la ruta de OneLake, porque el notebook es Python y no Spark; las columnas nuevas se fusionan en tablas existentes).
 
 ## Arquitectura
 

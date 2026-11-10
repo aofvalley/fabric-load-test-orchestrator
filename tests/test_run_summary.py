@@ -4,10 +4,11 @@ import os
 import time
 import types
 
+import pandas as pd
 import pytest
 
 import make_sample_data as sample_data
-from helpers import (NOTEBOOKS, SAMPLE, find_cell, lakehouse_path, load_notebook, make_notebookutils, parameters_cell,
+from helpers import (NOTEBOOKS, SAMPLE, SECRET_TOKEN, find_cell, lakehouse_path, load_notebook, make_notebookutils, parameters_cell,
                      run_scenario_user)
 
 NOTEBOOK = load_notebook(NOTEBOOKS / "RunLoadTest_v3.ipynb")
@@ -74,38 +75,28 @@ def test_a_run_without_results_is_failed(tmp_path):
     assert s["status"] == "failed" and s["queries"] == 0 and s["error_rate"] == 1.0
 
 
-class FakeSpark:
-    def __init__(self):
-        self.writes = []
+class RecordingDelta:
+    """Stands in for deltalake.write_deltalake and records every call."""
 
-    def createDataFrame(self, rows, schema):  # noqa: N802
-        spark = self
+    def __init__(self, reject=()):
+        self.calls = []
+        self.reject = set(reject)
 
-        class Writer:
-            def __init__(self):
-                self.options = {}
-
-            def mode(self, value):
-                self.options["mode"] = value
-                return self
-
-            def option(self, key, value):
-                self.options[key] = value
-                return self
-
-            def saveAsTable(self, name):  # noqa: N802
-                spark.writes.append({"table": name, "rows": rows, "schema": schema, **self.options})
-
-        return types.SimpleNamespace(write=Writer())
+    def __call__(self, uri, data, **kwargs):
+        if self.reject & set(kwargs):
+            raise TypeError(f"unexpected keyword argument {sorted(self.reject & set(kwargs))[0]!r}")
+        self.calls.append({"uri": uri, "data": data, **kwargs})
 
 
-def run_final_cell(folder, write_tables):
+def run_final_cell(folder, write_tables, fail_on_error_rate=1.0, delta=None):
     exits = []
     nbu = make_notebookutils(folder)
     nbu.notebook = types.SimpleNamespace(exit=exits.append)
-    namespace = {"notebookutils": nbu, "spark": FakeSpark(), "print": lambda *a, **k: None,
-                 "folder_path": str(folder), "loadtestId": folder.name, "load_test_name": "lt", "dataset": "Sales",
-                 "concurrent_threads": 2, "write_results_to_tables": write_tables}
+    nbu.runtime.context.update(currentWorkspaceId="ws-guid", defaultLakehouseId="lh-guid")
+    namespace = {"notebookutils": nbu, "write_deltalake": delta or RecordingDelta(), "os": os,
+                 "print": lambda *a, **k: None, "folder_path": str(folder), "loadtestId": folder.name,
+                 "load_test_name": "lt", "dataset": "Sales", "concurrent_threads": 2,
+                 "write_results_to_tables": write_tables, "fail_on_error_rate": fail_on_error_rate}
     exec(compile(HELPERS, "summary-helpers", "exec"), namespace)
     exec(compile(FINAL, "final", "exec"), namespace)
     return namespace, exits
@@ -116,23 +107,51 @@ def test_final_cell_writes_summary_and_exits_with_it(fake_fabric, tmp_path):
     namespace, exits = run_final_cell(folder, write_tables=False)
     saved = json.loads((folder / "summary.json").read_text(encoding="utf-8"))
     assert json.loads(exits[0]) == saved and saved["status"] == "completed"
-    assert namespace["spark"].writes == []
+    assert namespace["write_deltalake"].calls == []
 
 
-def test_final_cell_appends_typed_rows_to_the_delta_tables(fake_fabric, tmp_path):
+def test_driver_notebook_never_uses_spark():
+    """RunLoadTest_v3 is a Python notebook (jupyter_python): there is no Spark session in Fabric."""
+    import re
+    for cell in NOTEBOOK["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        code = "\n".join(line.split("#", 1)[0] for line in "".join(cell["source"]).splitlines())
+        assert not re.search(r"\bspark\b", code), "use deltalake (write_deltalake), not spark"
+
+
+def test_final_cell_appends_typed_rows_with_deltalake(fake_fabric, tmp_path):
     folder = scenario_run(tmp_path, "lt-c2-20260101-120000", 2)
-    namespace, _ = run_final_cell(folder, write_tables=True)
-    runs, queries = namespace["spark"].writes
-    assert runs["table"] == "loadtest_runs" and queries["table"] == "loadtest_queries"
-    assert runs["mode"] == queries["mode"] == "append"
-    assert len(runs["rows"]) == 1 and len(queries["rows"]) == 2 * QUERIES
-    names = [n for n, _ in namespace["QUERY_TABLE_SCHEMA"]]
-    first = dict(zip(names, queries["rows"][0]))
-    assert isinstance(first["duration"], float) and isinstance(first["thread_id"], int)
-    assert first["status"] == "ok" and first["error"] is None
-    old = helpers()["table_rows"]([{"duration": "1.5"}], namespace["QUERY_TABLE_SCHEMA"])[0]
-    assert dict(zip(names, old))["status"] is None, "older CSV files without status give NULL, not an error"
-    assert "`run_error` string" in runs["schema"]
+    namespace, exits = run_final_cell(folder, write_tables=True)
+    runs, queries = namespace["write_deltalake"].calls
+    root = "abfss://ws-guid@onelake.dfs.fabric.microsoft.com/lh-guid/Tables"
+    assert runs["uri"] == f"{root}/loadtest_runs" and queries["uri"] == f"{root}/loadtest_queries"
+    assert runs["mode"] == queries["mode"] == "append" and runs["schema_mode"] == "merge"
+    assert runs["storage_options"] == {"bearer_token": SECRET_TOKEN, "use_fabric_endpoint": "true"}
+    assert len(runs["data"]) == 1 and len(queries["data"]) == 2 * QUERIES
+    assert str(runs["data"]["run_error"].dtype) == "string", "an all-null column needs a type for Arrow"
+    assert str(queries["data"]["thread_id"].dtype) == "Int64" and str(queries["data"]["duration"].dtype) == "float64"
+    first = queries["data"].iloc[0]
+    assert first["status"] == "ok" and first["error"] is pd.NA
+    assert json.loads(exits[0])["status"] == "completed"
+
+
+def test_older_deltalake_without_schema_mode_falls_back_to_a_plain_append(fake_fabric, tmp_path):
+    folder = scenario_run(tmp_path, "lt-c2-20260101-120000", 2)
+    namespace, _ = run_final_cell(folder, write_tables=True, delta=RecordingDelta(reject={"schema_mode"}))
+    assert [set(c) - {"uri", "data"} for c in namespace["write_deltalake"].calls] == [{"mode", "storage_options"}] * 2
+
+
+def test_fail_on_error_rate_fails_the_notebook_after_writing_the_summary(fake_fabric, tmp_path):
+    folder = scenario_run(tmp_path, "lt-c2-20260101-120000", 2)
+    rows = (folder / "lt-c2-20260101-120000_user_0.csv").read_text(encoding="utf-8").splitlines()
+    rows[1] = rows[1].replace(",ok,", ",error,")
+    (folder / "lt-c2-20260101-120000_user_0.csv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="fail_on_error_rate"):
+        run_final_cell(folder, write_tables=False, fail_on_error_rate=0.0)
+    assert json.loads((folder / "summary.json").read_text(encoding="utf-8"))["failed_queries"] == 1
+    _, exits = run_final_cell(folder, write_tables=False)
+    assert json.loads(exits[0])["failed_queries"] == 1, "by default a run with failed queries still ends normally"
 
 
 def test_a_failed_runmultiple_still_leaves_summary_json(tmp_path):
