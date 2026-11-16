@@ -41,6 +41,10 @@ try:
         raise ValueError("El parámetro dataset es obligatorio")
     review["item_id"] = fabric.resolve_dataset_id(dataset, workspace=ws)
     review["workspace_id"] = fabric.resolve_workspace_id(ws)
+    # El orquestador construye la dirección XMLA con el nombre del workspace: un GUID solo falla en el test de carga.
+    review["workspace_name"] = fabric.resolve_workspace_name(review["workspace_id"])
+    if ws and ws != review["workspace_name"]:
+        print(f"model_workspace {ws} resuelto al nombre «{review['workspace_name']}» para el test de carga")
 
     import sempy_labs as labs
 
@@ -74,5 +78,6 @@ for c in checks:
 
 notebookutils.notebook.exit(json.dumps({
     "stage": "model_review", "status": worst([c.status for c in checks]),
-    "item_id": review.get("item_id"), "findings": len(review.get("findings", [])), "error": review.get("error"),
+    "item_id": review.get("item_id"), "workspace_name": review.get("workspace_name"),
+    "findings": len(review.get("findings", [])), "error": review.get("error"),
 }))

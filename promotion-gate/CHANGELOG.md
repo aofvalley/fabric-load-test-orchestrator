@@ -16,3 +16,16 @@ Primera versión.
   la promoción con un deployment pipeline. Login dentro del iframe del portal con el relay de MSAL.
 - `deploy/deploy.ps1` y `deploy/teardown.ps1`; caso de éxito Ventas Retail (Direct Lake que pasa el gate).
 - Plugin para Copilot CLI y Claude Code; plantillas de CI para GitHub Actions y Azure DevOps.
+
+Tras la revisión de #3:
+
+- `smgate promote` y la firma de la app no se fían solo de `promotable`: debe cuadrar con `verdict` (PASS, o WARN con
+  `warn_blocks_promotion: false`) y con el peor estado de las comprobaciones del `verdict.json`.
+- Capacity Metrics: `capacity.json` y el informe dan el último timepoint, el último refresco del modelo de la app
+  (`last_refresh_utc`) y si la capacidad ya está en ella (`capacity_in_app`), y el README pide comprobar el refresco.
+- `model_workspace` puede llegar como GUID: `smgate run` y `NB_Gate_ModelReview` lo resuelven al nombre que necesita el
+  orquestador para la dirección XMLA, en lugar de fallar en el test de carga.
+- `teardown.ps1 -App` lista la base de datos SQL de la app y avisa de que se pierde su historial antes de pedir
+  confirmación; la app muestra el rechazo del gate (actividad `Fail_Gate`) como aviso y no como fallo del pipeline;
+  requisitos de capacidad mínima, refresco de Capacity Metrics y Node 20, 22 o 24 en el README.
+- `npm run dev:demo` funciona en un checkout limpio: el cliente de Rayfin se crea al primer uso y no al importar.

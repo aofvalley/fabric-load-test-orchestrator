@@ -39,9 +39,32 @@ def test_promote_refuses_non_promotable_and_foreign_item(tmp_path):
     base = ["promote", "--verdict", str(v), "--deployment-pipeline-id", "dp", "--source-stage-id", "s0",
             "--target-stage-id", "s1", "--dry-run"]
     assert cli.main(base) == 2
-    v.write_text(json.dumps({"verdict": "PASS", "promotable": True, "context": {"item_id": "m1", "run_id": "r"}}))
+    ok = {"verdict": "PASS", "promotable": True, "context": {"item_id": "m1", "run_id": "r"},
+          "checks": [{"status": "PASS"}, {"status": "SKIP"}], "config": {"verdict": {"warn_blocks_promotion": False}}}
+    v.write_text(json.dumps(ok))
     assert cli.main(base) == 0
     assert cli.main(base + ["--item-id", "otro"]) == 1
+
+
+def test_promote_does_not_trust_a_tampered_promotable_flag(tmp_path, capsys):
+    v = tmp_path / "v.json"
+    base = ["promote", "--verdict", str(v), "--deployment-pipeline-id", "dp", "--source-stage-id", "s0",
+            "--target-stage-id", "s1", "--dry-run"]
+    ok = {"verdict": "PASS", "promotable": True, "context": {"item_id": "m1"}, "checks": [{"status": "PASS"}],
+          "config": {"verdict": {"warn_blocks_promotion": False}}}
+    tampered = [
+        dict(ok, verdict="FAIL"),                                   # el caso de la revisión
+        dict(ok, checks=[{"status": "FAIL"}]),                      # PASS con una comprobación FAIL
+        dict(ok, checks=[]),                                        # sin comprobaciones
+        dict(ok, verdict="WARN", checks=[{"status": "WARN"}], config={"verdict": {"warn_blocks_promotion": True}}),
+        dict(ok, verdict="WARN", checks=[{"status": "WARN"}], config={}),
+    ]
+    for bad in tampered:
+        v.write_text(json.dumps(bad))
+        assert cli.main(base) == 2, bad
+        assert "Promoción bloqueada" in capsys.readouterr().out
+    v.write_text(json.dumps(dict(ok, verdict="WARN", checks=[{"status": "WARN"}, {"status": "PASS"}])))
+    assert cli.main(base) == 0
 
 
 def test_override_is_layered_over_the_team_file(tmp_path):
@@ -53,6 +76,27 @@ def test_override_is_layered_over_the_team_file(tmp_path):
     assert cfg["load_test"]["target_level"] == 100 and cfg["load_test"]["p95_sec"] == 3.0
     assert cfg["model_review"]["sku"] == "F32" and cfg["capacity"]["required"] is True
     assert load_config(str(tmp_path / "missing.yaml"))["load_test"]["target_level"] == 60
+
+
+def test_model_workspace_guid_is_resolved_to_its_name_before_launch():
+    import pytest
+
+    guid = "11111111-2222-3333-4444-555555555555"
+
+    class Fake:
+        def __init__(self, fail=False):
+            self.fail = fail
+
+        def request(self, method, path):
+            if self.fail:
+                raise RuntimeError("404")
+            assert path == f"workspaces/{guid}"
+            return {"displayName": "Load Testing"}
+
+    assert cli.resolve_model_workspace({"model_workspace": guid}, Fake())["model_workspace"] == "Load Testing"
+    assert cli.resolve_model_workspace({"model_workspace": "Load Testing"}, Fake(fail=True))["model_workspace"] == "Load Testing"
+    with pytest.raises(SystemExit, match="no su GUID"):
+        cli.resolve_model_workspace({"model_workspace": guid}, Fake(fail=True))
 
 
 def test_string_parameters_stay_strings():

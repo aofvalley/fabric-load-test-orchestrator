@@ -17,7 +17,7 @@ from .config import load_config
 from .loadtest import read_runs, summarize
 from .notebooks import bind_lakehouse, load_notebooks, notebook_definition
 from .report import render_markdown
-from .verdict import decide
+from .verdict import decide, promotion_block_reason
 
 ROOT = Path(__file__).resolve().parents[2]
 GATE_FILES = "Files/PromotionGate"
@@ -34,7 +34,7 @@ def _json(path: str | None) -> Any:
 
 
 def _exit_code(verdict: dict[str, Any]) -> int:
-    return 0 if verdict.get("promotable") else 2
+    return 0 if promotion_block_reason(verdict) is None else 2
 
 
 def cmd_evaluate(a: argparse.Namespace) -> int:
@@ -143,12 +143,35 @@ def coerce_to_pipeline_types(params: dict[str, Any]) -> dict[str, Any]:
             out[k] = json.dumps(v, ensure_ascii=False)
     return out
 
+def _is_guid(text: str) -> bool:
+    try:
+        uuid.UUID(text.strip())
+        return True
+    except (ValueError, AttributeError):
+        return False
+
+
+def resolve_model_workspace(params: dict[str, Any], fc: Any) -> dict[str, Any]:
+    """El orquestador construye la dirección XMLA con el nombre del workspace: un GUID se resuelve a su nombre aquí,
+    antes de lanzar, para no fallar 20 minutos después en el test de carga."""
+    ws = str(params.get("model_workspace") or "").strip()
+    if not _is_guid(ws):
+        return params
+    try:
+        name = fc.request("GET", f"workspaces/{ws}")["displayName"]
+    except Exception as exc:  # noqa: BLE001
+        raise SystemExit(f"model_workspace {ws} parece un GUID y no se puede resolver a su nombre ({exc}). "
+                         "Pasa el nombre del workspace, no su GUID.") from exc
+    print(f"model_workspace {ws} resuelto a «{name}» (el test de carga necesita el nombre)")
+    return {**params, "model_workspace": name}
+
+
 def cmd_run(a: argparse.Namespace) -> int:
     fc = _client()
     pipe = fc.find_item(a.workspace_id, GATE_PIPELINE, "DataPipeline")
     if not pipe:
         raise SystemExit(f"No existe {GATE_PIPELINE}: ejecuta  smgate deploy  primero.")
-    params = coerce_to_pipeline_types(_params(a))
+    params = resolve_model_workspace(coerce_to_pipeline_types(_params(a)), fc)
     if not params.get("dataset"):
         raise SystemExit("Falta el parámetro dataset (--param dataset=<modelo>)")
     params.setdefault("run_id", datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6])
@@ -194,8 +217,9 @@ def cmd_promote(a: argparse.Namespace) -> int:
     verdict = _json(a.verdict)
     if not verdict:
         raise SystemExit(f"No se puede leer {a.verdict}")
-    if not verdict.get("promotable"):
-        print(f"Promoción bloqueada: veredicto {verdict.get('verdict')}.")
+    blocked = promotion_block_reason(verdict)
+    if blocked:
+        print(f"Promoción bloqueada: {blocked}.")
         return 2
     item_id = a.item_id or verdict.get("context", {}).get("item_id")
     if not item_id:

@@ -203,6 +203,29 @@ def timepoint_utc(value: Any, utc_offset_hours: float = 0.0) -> datetime | None:
     return dt - timedelta(hours=utc_offset_hours) if dt else None
 
 
+def capacity_known_query(capacity_id: str) -> str:
+    """¿Está la capacidad en la tabla Capacities de la app? Las capacidades nuevas entran con el refresco programado del
+    modelo. Es un diagnóstico: en v53 los timepoints de una capacidad nueva llegan aunque aún no esté en la tabla."""
+    cap = _check_guid(capacity_id)
+    return f"""EVALUATE FILTER(VALUES('Capacities'[Capacity Id]), UPPER('Capacities'[Capacity Id]) = UPPER("{cap}"))"""
+
+
+def last_refresh_utc(rows: list[dict[str, Any]] | None) -> datetime | None:
+    """Fin del último refresco completado del modelo de Capacity Metrics (filas de sempy list_refresh_requests)."""
+    out = None
+    for r in rows or []:
+        status = str(r.get("Status") or r.get("status") or "").lower()
+        if status and status not in ("completed", "succeeded", "success"):
+            continue
+        raw = r.get("End Time", r.get("endTime"))
+        if raw is None or raw != raw:  # NaT/NaN: refresco en curso
+            continue
+        dt = _to_dt(raw)
+        if dt and (out is None or dt > out):
+            out = dt
+    return out
+
+
 def days_in_window(start_utc: str, end_utc: str, utc_offset_hours: float = 0.0) -> list[date]:
     """Días (en la hora local de la app) que cubre la ventana UTC del test."""
     s, e = _to_dt(start_utc), _to_dt(end_utc)
@@ -237,7 +260,8 @@ def percent_scale(timepoints: list[dict[str, Any]]) -> float:
 def analyze(timepoints: list[dict[str, Any]], item_operations: list[dict[str, Any]], window: dict[str, str],
             model_item_id: str, tooling_workspace_id: str | None = None, margin_min: int = 5,
             version: str | None = None, capacity_id: str | None = None, utc_offset_hours: float = 0.0,
-            operations_scope: str = "day") -> dict[str, Any]:
+            operations_scope: str = "day", last_refresh: datetime | None = None,
+            capacity_in_app: bool | None = None) -> dict[str, Any]:
     tps = normalize_rows(timepoints)
     ios = normalize_rows(item_operations)
     s, e = _to_dt(window.get("start_utc")), _to_dt(window.get("end_utc"))
@@ -280,6 +304,8 @@ def analyze(timepoints: list[dict[str, Any]], item_operations: list[dict[str, An
         "timepoints_in_window": len(in_win),
         "percent_scale": scale,
         "latest_timepoint_utc": latest.isoformat() if latest else None,
+        "last_refresh_utc": last_refresh.isoformat() if last_refresh else None,
+        "capacity_in_app": capacity_in_app,
         "covers_window_end": bool(latest and test_end and latest >= test_end),
         "peak_utilization_pct": round(max(util, default=0.0), 1),
         "avg_utilization_pct": round(sum(util) / len(util), 1) if util else 0.0,
@@ -304,6 +330,23 @@ def _scope(metrics: dict[str, Any]) -> str:
     return "horas del test" if metrics.get("operations_scope") == "hour" else "día completo"
 
 
+RERUN = "repite solo NB_Gate_CapacityMetrics y NB_Gate_Verdict (smgate run-item)"
+
+
+def missing_data_hint(metrics: dict[str, Any]) -> str:
+    """Qué hacer cuando Capacity Metrics no cubre el test, con los datos para diagnosticarlo."""
+    latest = _to_dt(metrics.get("latest_timepoint_utc"))
+    refresh = _to_dt(metrics.get("last_refresh_utc"))
+    end = _to_dt((metrics.get("window") or {}).get("end_utc"))
+    known = {True: "sí", False: "no (es nueva para la app)", None: "desconocido"}[metrics.get("capacity_in_app")]
+    facts = (f"Último timepoint: {latest.isoformat() if latest else 'ninguno'}; "
+             f"último refresco del modelo de Capacity Metrics: {refresh.isoformat() if refresh else 'desconocido'}; "
+             f"capacidad en la app: {known}; fin del test: {end.isoformat() if end else '?'}.")
+    return (f"{facts} Normalmente la app refleja el consumo en 10 a 15 minutos: sube metrics_lag_minutes o {RERUN} más "
+            f"tarde. Si sigue sin datos y el último refresco es anterior al test, refresca el modelo de Capacity Metrics "
+            f"(y revisa que sus refrescos no fallen) antes de repetir.")
+
+
 def evaluate_capacity(metrics: dict[str, Any] | None, cfg: dict[str, Any]) -> list[Check]:
     c = cfg["capacity"]
     if not metrics or metrics.get("error"):
@@ -312,15 +355,11 @@ def evaluate_capacity(metrics: dict[str, Any] | None, cfg: dict[str, Any]) -> li
         return [Check("capacity.evidence", "capacity", status, "Sin evidencia de Capacity Metrics", str(detail))]
     if not metrics.get("timepoints_in_window"):
         return [Check("capacity.evidence", "capacity", FAIL if c["required"] else SKIP,
-                      "Capacity Metrics sin datos en la ventana del test",
-                      "La app tarda entre 10 y 15 minutos en reflejar el consumo; sube metrics_lag_minutes (espera máxima) y repite "
-                      "solo NB_Gate_CapacityMetrics y NB_Gate_Verdict.")]
+                      "Capacity Metrics sin datos en la ventana del test", missing_data_hint(metrics))]
     if not metrics.get("covers_window_end", True):
         return [Check("capacity.evidence", "capacity", FAIL if c["required"] else SKIP,
                       "Capacity Metrics incompleto: no cubre el final del test",
-                      f"Último timepoint {metrics.get('latest_timepoint_utc')}, el test terminó a las "
-                      f"{(metrics.get('window') or {}).get('end_utc')}. Falta el nivel más alto de la rampa; repite "
-                      "NB_Gate_CapacityMetrics y NB_Gate_Verdict más tarde.")]
+                      "Falta el nivel más alto de la rampa. " + missing_data_hint(metrics))]
     checks = [
         Check("capacity.utilization", "capacity",
               FAIL if metrics["peak_utilization_pct"] > c["max_utilization_pct"] else PASS,

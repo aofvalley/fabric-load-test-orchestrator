@@ -58,6 +58,8 @@ def test_pipeline_forwards_only_known_orchestrator_parameters():
     run = ACTS["Run_LoadTest"]["typeProperties"]
     assert run["pipeline"]["referenceName"] == "{{PIPELINE:PL_PerfTest_MultiModel_v3}}"
     assert set(run["parameters"]) <= ORCHESTRATOR_PARAMS
+    # El test de carga usa el nombre que resuelve NB_Gate_ModelReview (model_workspace puede llegar como GUID).
+    assert "exitValue).workspace_name, pipeline().parameters.model_workspace)" in run["parameters"]["models"]["value"]
     declared = set(PIPE["properties"]["parameters"])
     used = set(re.findall(r"pipeline\(\)\.parameters\.(\w+)", json.dumps(PIPE)))
     assert used <= declared, used - declared
@@ -112,9 +114,14 @@ PLACEHOLDER = re.compile(r"^(?:(.)\1{7}-|.*-0000-4000-8000-)", re.I)
 def _versioned_files():
     import subprocess
 
-    out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "."],
-                         cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    return [ROOT / line for line in out.splitlines() if line and (ROOT / line).is_file()]
+    try:
+        out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard", "--", "."],
+                             cwd=ROOT, capture_output=True, text=True, check=True).stdout
+        return [ROOT / line for line in out.splitlines() if line and (ROOT / line).is_file()]
+    except (OSError, subprocess.CalledProcessError):  # extracción sin git (p. ej. git archive): se recorre el árbol
+        skip = {".git", ".venv", ".venv-demo", "node_modules", "dist", "out", "build", "__pycache__", ".pytest_cache"}
+        return [p for p in ROOT.rglob("*") if p.is_file() and p.name not in (".env", ".env.local", ".deployment.json")
+                and not any(x in skip or x.endswith(".egg-info") for x in p.relative_to(ROOT).parts)]
 
 
 def test_no_real_ids_or_upns_in_versioned_files():

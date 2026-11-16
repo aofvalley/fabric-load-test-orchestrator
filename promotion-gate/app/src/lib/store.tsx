@@ -10,7 +10,7 @@ import type { Evidence, JobStatus, RunRecord } from './types';
 
 export type Route = { name: 'new' } | { name: 'runs' } | { name: 'run'; runId: string } | { name: 'settings' };
 
-export interface LiveRun { phases: PhaseStatus[]; levels: LevelProgress[]; failure?: string; updatedAt: number }
+export interface LiveRun { phases: PhaseStatus[]; levels: LevelProgress[]; failure?: string; gateRejected?: boolean; updatedAt: number }
 
 interface Gate {
   service: GateService;
@@ -136,7 +136,7 @@ export function GateProvider({ children }: { children: ReactNode }) {
             await patchRun(run.run_id, { pipeline_job_id: jobId, status: 'InProgress' });
           }
           const p = await service.progress(jobId, run.run_id, new Date(run.started_at));
-          setLive((m) => ({ ...m, [run.run_id]: { phases: p.phases, levels: p.levels, failure: p.failure, updatedAt: Date.now() } }));
+          setLive((m) => ({ ...m, [run.run_id]: { phases: p.phases, levels: p.levels, failure: p.failure, gateRejected: p.gateRejected, updatedAt: Date.now() } }));
           if (FINISHED.includes(p.jobStatus)) {
             const ev = await loadEvidence(run.run_id, true);
             await patchRun(run.run_id, {

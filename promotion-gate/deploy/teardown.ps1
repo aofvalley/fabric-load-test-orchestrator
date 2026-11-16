@@ -7,6 +7,8 @@
   Borra NB_Gate_* y PL_PromotionGate del workspace de herramientas. No toca el orquestador de carga, el lakehouse,
   Files/PromotionGate ni las tablas gate_*: son la auditoría de promociones. Con -App borra también el item de la app.
   El registro SPA de Entra y la carpeta del caso de éxito se borran a mano. -WhatIf solo lista.
+  -App borra también la base de datos SQL de la app (su historial de runs) y avisa antes de confirmar. Las tablas
+  gate_* del lakehouse quedan.
 #>
 [CmdletBinding()]
 param(
@@ -39,11 +41,15 @@ if ($App) {
   if (-not $AppWorkspace) { throw '-App necesita -AppWorkspace.' }
   $appWs = Find-Workspace $AppWorkspace
   $targets += (Invoke-RestMethod "$api/workspaces/$($appWs.id)/items" -Headers $h).value |
-    Where-Object { $_.displayName -eq $AppItemName -and $_.type -ne 'SQLEndpoint' } | ForEach-Object { [pscustomobject]@{ ws = $appWs; item = $_ } }
+    Where-Object { $_.displayName -eq $AppItemName -and $_.type -ne 'SQLEndpoint' } |
+    ForEach-Object { [pscustomobject]@{ ws = $appWs; item = $_ } }
 }
 if (-not $targets) { Write-Host 'No hay nada que borrar.'; exit 0 }
 Write-Host 'Se borrarían:'
 $targets | ForEach-Object { Write-Host ("  {0} / {1} ({2})" -f $_.ws.displayName, $_.item.displayName, $_.item.type) }
+if ($targets | Where-Object { $_.item.type -eq 'SQLDatabase' }) {
+  Write-Warning 'Incluye la base de datos SQL de la app: se pierde su historial de runs. Las tablas gate_* del lakehouse (auditoría) se conservan.'
+}
 if ($WhatIf) { exit 0 }
 if ((Read-Host "Escribe '$($tools.displayName)' para confirmar") -cne $tools.displayName) { Write-Host 'Cancelado.'; exit 1 }
 foreach ($t in $targets) {

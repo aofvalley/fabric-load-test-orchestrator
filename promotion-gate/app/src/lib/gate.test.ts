@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import pipeline from '../../../pipelines/PL_PromotionGate.json';
 import {
   activitiesMentionRun, candidateJobs, exitValue, gateOverride, makeRunId, modelKey, parseRamp, phaseStatuses,
-  pipelineParams, promotionBlockers, promotionPath, rampProblems, rlsParams, type LaunchForm,
+  pipelineParams, promotionBlockers, promotionPath, rampProblems, rlsParams, verdictBlockReason, gateRejected, type LaunchForm,
 } from './gate';
 import type { ActivityRun } from './fabric';
 import type { Verdict } from './types';
@@ -129,11 +129,32 @@ describe('promoción', () => {
   });
 
   it('bloquea veredictos no promocionables, de otro modelo o ya promocionados', () => {
-    const v = { verdict: 'PASS', promotable: true, context: { item_id: 'M1' } } as unknown as Verdict;
+    const v = { verdict: 'PASS', promotable: true, context: { item_id: 'M1' }, checks: [{ status: 'PASS' }, { status: 'SKIP' }],
+      config: { verdict: { warn_blocks_promotion: false } } } as unknown as Verdict;
     expect(promotionBlockers(v, 'm1')).toEqual([]);
     expect(promotionBlockers({ ...v, promotable: false, verdict: 'FAIL' }, 'm1')[0]).toMatch(/FAIL/);
     expect(promotionBlockers(v, 'm2')[0]).toMatch(/otro modelo/);
     expect(promotionBlockers(v, 'm1', '5 nov')[0]).toMatch(/ya se promocionó/);
     expect(promotionBlockers(null, 'm1')[0]).toMatch(/no ha emitido/);
+  });
+
+  it('distingue el rechazo del gate (Fail_Gate) de un fallo real del pipeline', () => {
+    const ok = [act('NB_Gate_Verdict', 'Succeeded')];
+    const rejected = [...ok, act('If_NotPromotable', 'Failed'), act('Fail_Gate', 'Failed')];
+    expect(gateRejected(rejected)).toBe(true);
+    expect(gateRejected([...rejected, act('If_ReviewAllowsLoadTest', 'Failed'), act('Run_LoadTest', 'Failed')])).toBe(false);
+    expect(gateRejected([act('NB_Gate_ModelReview', 'Failed')])).toBe(false);
+    expect(gateRejected(ok)).toBe(false);
+  });
+
+  it('no se fía de promotable si no cuadra con el veredicto ni con las comprobaciones', () => {
+    const v = { verdict: 'PASS', promotable: true, context: {}, checks: [{ status: 'PASS' }],
+      config: { verdict: { warn_blocks_promotion: false } } } as unknown as Verdict;
+    expect(verdictBlockReason(v)).toBeNull();
+    expect(verdictBlockReason({ ...v, verdict: 'FAIL' })).toMatch(/incompatible/);
+    expect(verdictBlockReason({ ...v, checks: [{ status: 'FAIL' }] } as unknown as Verdict)).toMatch(/dan FAIL/);
+    const warn = { ...v, verdict: 'WARN', checks: [{ status: 'WARN' }] } as unknown as Verdict;
+    expect(verdictBlockReason(warn)).toBeNull();
+    expect(verdictBlockReason({ ...warn, config: { verdict: { warn_blocks_promotion: true } } } as unknown as Verdict)).toMatch(/WARN/);
   });
 });

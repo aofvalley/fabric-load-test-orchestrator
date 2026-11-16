@@ -107,7 +107,7 @@
                 "waitOnCompletion": true,
                 "parameters": {
                   "models": {
-                    "value": "@json(concat('[{\"model_key\":\"', pipeline().parameters.model_key, '\",\"dataset\":\"', pipeline().parameters.dataset, '\",\"workspace\":\"', pipeline().parameters.model_workspace, '\",\"queryfile\":\"', pipeline().parameters.queryfile, '\"}]'))",
+                    "value": "@json(concat('[{\"model_key\":\"', pipeline().parameters.model_key, '\",\"dataset\":\"', pipeline().parameters.dataset, '\",\"workspace\":\"', coalesce(json(activity('NB_Gate_ModelReview').output.result.exitValue).workspace_name, pipeline().parameters.model_workspace), '\",\"queryfile\":\"', pipeline().parameters.queryfile, '\"}]'))",
                     "type": "Expression"
                   },
                   "test_name_prefix": {

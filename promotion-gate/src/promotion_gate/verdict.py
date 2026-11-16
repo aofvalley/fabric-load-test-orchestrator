@@ -46,3 +46,26 @@ def decide(review: dict[str, Any] | None, load_summary: dict[str, Any] | None, c
         "advice": [a.to_dict() for a in advice],
         "config": cfg,
     }
+
+
+def promotion_block_reason(verdict: dict[str, Any]) -> str | None:
+    """Motivo por el que un verdict.json no permite promocionar, o None. No se fía solo de `promotable`:
+    exige que coincida con `verdict`, con la configuración y con el peor estado de sus comprobaciones."""
+    v = verdict.get("verdict")
+    if verdict.get("promotable") is not True:
+        return f"veredicto {v}, no promocionable"
+    if v not in (PASS, WARN):
+        return f"veredicto {v} incompatible con promotable=true"
+    if v == WARN and (verdict.get("config") or {}).get("verdict", {}).get("warn_blocks_promotion", True) is not False:
+        return "veredicto WARN y la configuración no permite promocionar con avisos (warn_blocks_promotion)"
+    statuses = [c.get("status") for c in verdict.get("checks") or [] if isinstance(c, dict)]
+    if not statuses:
+        return "el veredicto no trae comprobaciones"
+    if any(s not in (PASS, WARN, FAIL, SKIP) for s in statuses):
+        return "el veredicto trae comprobaciones con estados desconocidos"
+    derived = worst(statuses)
+    if derived not in (FAIL, WARN):
+        derived = PASS
+    if derived != v:
+        return f"las comprobaciones dan {derived} y el veredicto dice {v}"
+    return None

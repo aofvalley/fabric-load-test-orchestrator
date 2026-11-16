@@ -26,12 +26,13 @@ Retraso al 100 % significa que Fabric ya retrasa las consultas interactivas; rec
 
 ## Lanzar o repetir esta fase
 
-La app tarda de 10 a 15 minutos en reflejar el consumo. Si el informe dice «sin datos en la ventana», repite solo
-esta fase y el veredicto con el mismo `run_id`:
+El informe da el último timepoint, el último refresco del modelo de la app y si la capacidad ya está en ella. Lo normal
+es el retraso de la app (10 a 15 minutos): repite solo esta fase y el veredicto con el mismo `run_id` más tarde. Si
+sigue sin datos y el último refresco es anterior al test, pide refrescar el modelo de Capacity Metrics antes de repetir.
 
 ```powershell
 smgate run-item --workspace-id $env:GATE_WORKSPACE_ID --name NB_Gate_CapacityMetrics --wait --param run_id=<run_id> `
-  --param capacity_metrics_workspace="$env:CAPACITY_METRICS_WORKSPACE" --param model_workspace="<workspace>"
+  --param capacity_metrics_workspace="$env:CAPACITY_METRICS_WORKSPACE" --param model_workspace="<nombre del workspace>"
 smgate run-item --workspace-id $env:GATE_WORKSPACE_ID --name NB_Gate_Verdict --wait --param run_id=<run_id> --param dataset="<modelo>"
 ```
 

@@ -1,11 +1,11 @@
-import { ArrowDownToLine, ArrowRight, ExternalLink, FileText, OctagonX, PenLine, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ArrowDownToLine, ArrowRight, ExternalLink, FileText, Info, OctagonX, PenLine, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LatencyChart } from '../components/LatencyChart';
 import { PhaseRoute } from '../components/PhaseRoute';
 import { ReleaseTag } from '../components/ReleaseTag';
 import { StatusTag } from '../components/StatusTag';
 import { AREA_LABEL, dateTime, duration, num, pct, secs } from '../lib/format';
-import { PHASES, promotionBlockers, type PhaseStatus, type PromotionPath } from '../lib/gate';
+import { PHASES, promotionBlockers, verdictBlockReason, type PhaseStatus, type PromotionPath } from '../lib/gate';
 import { ACTIVE, useGate } from '../lib/store';
 import type { Advice, Area, Capacity, Check, Evidence, LoadTest, ModelReview, RunRecord, Status } from '../lib/types';
 
@@ -107,7 +107,9 @@ export function RunView({ runId }: { runId: string }) {
                 <p>{run.status === 'Locating' ? 'Esperando a que Fabric arranque el pipeline…' : <>En curso: <b>{running?.label ?? 'preparando'}</b>. Puedes cerrar la app; el gate sigue en Fabric.</>}</p>
               </div>
             )}
-            {l?.failure && <div className="notice notice--fail" style={{ margin: 'var(--sp-4) var(--sp-5)' }}><TriangleAlert aria-hidden /><div><strong>El pipeline ha fallado</strong><p>{l.failure}</p></div></div>}
+            {l?.failure && (l.gateRejected
+              ? <div className="notice" style={{ margin: 'var(--sp-4) var(--sp-5)' }}><Info aria-hidden /><div><strong>Gate no superado</strong><p>El pipeline termina en Failed a propósito para que CI y los deployment pipelines no promocionen. El motivo está en el certificado.</p></div></div>
+              : <div className="notice notice--fail" style={{ margin: 'var(--sp-4) var(--sp-5)' }}><TriangleAlert aria-hidden /><div><strong>El pipeline ha fallado</strong><p>{l.failure}</p></div></div>)}
           </section>
 
           {!active && !verdict && (
@@ -426,7 +428,7 @@ function SignOff({ run, ev }: { run: RunRecord; ev: Evidence | undefined }) {
   const { service, account, patchRun } = useGate();
   const verdict = ev?.verdict ?? null;
   const blockers = promotionBlockers(verdict, run.dataset_id, run.promoted_at ? dateTime(run.promoted_at) : undefined);
-  const promotable = verdict?.promotable ?? false;
+  const promotable = verdict ? verdictBlockReason(verdict) === null : false;
   const [path, setPath] = useState<{ status: 'idle' | 'loading' | 'done' | 'error'; value: PromotionPath | null; error?: string }>({ status: 'idle', value: null });
   const [state, setState] = useState<{ busy: boolean; error: string | null }>({ busy: false, error: null });
   const [typed, setTyped] = useState('');

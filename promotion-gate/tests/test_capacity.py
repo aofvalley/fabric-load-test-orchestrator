@@ -2,8 +2,9 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from promotion_gate.capacity import (analyze, days_in_window, detect_version, evaluate_capacity, item_operation_query,
-                                     norm_key, percent_scale, timepoints_query)
+from promotion_gate.capacity import (analyze, capacity_known_query, days_in_window, detect_version, evaluate_capacity,
+                                     item_operation_query, last_refresh_utc, missing_data_hint, norm_key, percent_scale,
+                                     timepoints_query)
 from promotion_gate.checks import FAIL, PASS, SKIP, WARN
 from promotion_gate.config import load_config
 
@@ -96,6 +97,33 @@ def test_missing_capacity_evidence(capacity_ok):
     empty = dict(capacity_ok, timepoints_in_window=0)
     assert "metrics_lag_minutes" in evaluate_capacity(empty, cfg)[0].detail
     assert all(c.status == PASS for c in evaluate_capacity(capacity_ok, cfg))
+
+
+def test_last_refresh_comes_from_the_latest_completed_refresh():
+    rows = [{"Status": "Completed", "End Time": "2026-11-15T23:05:00Z"},
+            {"Status": "Failed", "End Time": "2026-11-16T09:00:00Z"},
+            {"Status": "Unknown", "End Time": float("nan")},
+            {"Status": "Completed", "End Time": "2026-11-14T23:04:00Z"}]
+    assert last_refresh_utc(rows) == datetime(2026, 11, 15, 23, 5, tzinfo=timezone.utc)
+    assert last_refresh_utc([]) is None
+
+
+def test_missing_data_hint_reports_what_is_needed_to_diagnose():
+    window = {"start_utc": "2026-11-16T10:00:00Z", "end_utc": "2026-11-16T10:30:00Z"}
+    m = {"window": window, "latest_timepoint_utc": None, "capacity_in_app": False,
+         "last_refresh_utc": "2026-11-15T23:12:00+00:00", "timepoints_in_window": 0}
+    detail = evaluate_capacity(m, load_config())[0].detail
+    assert "último refresco del modelo de Capacity Metrics: 2026-11-15T23:12:00+00:00" in detail
+    assert "capacidad en la app: no (es nueva para la app)" in detail and "Último timepoint: ninguno" in detail
+    assert "refresca el modelo de Capacity Metrics" in detail and "metrics_lag_minutes" in detail
+    assert "capacidad en la app: desconocido" in missing_data_hint(dict(m, capacity_in_app=None))
+
+
+def test_capacity_known_query():
+    q = capacity_known_query(CAP)
+    assert "'Capacities'[Capacity Id]" in q and CAP in q
+    with pytest.raises(ValueError):
+        capacity_known_query('x") , EVALUATE')
 
 
 def test_partial_metrics_that_miss_test_end_fail():

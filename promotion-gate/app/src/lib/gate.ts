@@ -166,11 +166,35 @@ export function promotionPath(pipelineId: string, pipelineName: string, stages: 
   return { pipelineId, pipelineName, source: sorted[i], target: sorted[i + 1] };
 }
 
+/** El pipeline termina en Failed a propósito (Fail_Gate dentro de If_NotPromotable) cuando el modelo no es promocionable.
+ * Es un rechazo, no un error, solo si ninguna otra actividad falló. Se mira en las actividades y no en el texto del error. */
+export function gateRejected(runs: ActivityRun[]): boolean {
+  const failed = runs.filter((r) => activityState(r.status) === 'failed').map((r) => r.activityName);
+  return failed.includes('Fail_Gate') && failed.every((n) => n === 'Fail_Gate' || n === 'If_NotPromotable');
+}
+
+/** Mismo criterio que smgate promote: `promotable` debe coincidir con el veredicto, la configuración y las comprobaciones. */
+export function verdictBlockReason(v: Verdict): string | null {
+  if (v.promotable !== true) return `Veredicto ${v.verdict}: el modelo no es promocionable.`;
+  if (v.verdict !== 'PASS' && v.verdict !== 'WARN') return `Veredicto ${v.verdict} incompatible con promotable=true.`;
+  if (v.verdict === 'WARN' && v.config?.verdict?.warn_blocks_promotion !== false)
+    return 'Veredicto WARN y la configuración no permite promocionar con avisos.';
+  const rank: Record<string, number> = { PASS: 0, SKIP: 1, WARN: 2, FAIL: 3 };
+  const statuses = (v.checks ?? []).map((c) => c.status as string);
+  if (!statuses.length) return 'El veredicto no trae comprobaciones.';
+  if (statuses.some((s) => !(s in rank))) return 'El veredicto trae comprobaciones con estados desconocidos.';
+  const w = statuses.reduce((a, b) => (rank[b] > rank[a] ? b : a));
+  const derived = w === 'FAIL' || w === 'WARN' ? w : 'PASS';
+  if (derived !== v.verdict) return `Las comprobaciones dan ${derived} y el veredicto dice ${v.verdict}.`;
+  return null;
+}
+
 export function promotionBlockers(v: Verdict | null, datasetId: string, alreadyPromoted?: string): string[] {
   const out: string[] = [];
   if (!v) out.push('El gate no ha emitido veredicto.');
   else {
-    if (!v.promotable) out.push(`Veredicto ${v.verdict}: el modelo no es promocionable.`);
+    const blocked = verdictBlockReason(v);
+    if (blocked) out.push(blocked);
     if (v.context.item_id && v.context.item_id.toLowerCase() !== datasetId.toLowerCase())
       out.push('El veredicto es de otro modelo.');
   }

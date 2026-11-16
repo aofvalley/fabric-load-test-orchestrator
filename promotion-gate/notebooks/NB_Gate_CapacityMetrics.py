@@ -31,7 +31,7 @@ import sempy.fabric as fabric
 
 from promotion_gate.capacity import (SUPPORTED_VERSIONS, UTC_OFFSET_QUERY, analyze, days_in_window, detect_version,
                                      evaluate_capacity, item_operation_hour_query, item_operation_query,
-                                     normalize_rows, parse_utc_offset,
+                                     capacity_known_query, last_refresh_utc, normalize_rows, parse_utc_offset,
                                      timepoint_utc, timepoints_query, to_dt)
 from promotion_gate.checks import worst
 from promotion_gate.config import load_config
@@ -75,6 +75,24 @@ try:
         offset = 0.0
     print(f"Capacity Metrics {version}, timepoints en UTC{offset:+g}")
 
+    def read_last_refresh():
+        try:
+            return last_refresh_utc(fabric.list_refresh_requests(dataset=capacity_metrics_dataset,
+                                                                 workspace=capacity_metrics_workspace or None,
+                                                                 top_n=10).to_dict("records"))
+        except Exception as exc:  # noqa: BLE001 - sin permiso para leer el historial de refrescos
+            print(f"No se pudo leer el historial de refrescos de Capacity Metrics: {exc}")
+            return None
+
+    refreshed = read_last_refresh()
+    print(f"Último refresco del modelo de Capacity Metrics: {refreshed or 'desconocido'}")
+    try:  # diagnóstico para el informe; no condiciona la espera (los timepoints llegan aunque no esté)
+        known = bool(evaluate(capacity_known_query(cap)).to_dict("records"))
+    except Exception as exc:  # noqa: BLE001
+        print(f"No se pudo comprobar si Capacity Metrics conoce la capacidad: {exc}")
+        known = None
+    print(f"Capacidad {cap} en Capacity Metrics: {known}")
+
     deadline = time.time() + 60 * int(max_extra_wait_minutes)
     end = to_dt(window["end_utc"])
     local = lambda key: to_dt(window[key]) + timedelta(hours=offset)
@@ -88,6 +106,7 @@ try:
             break
         print(f"Capacity Metrics llega hasta {latest}; el test terminó a las {end}. Reintento en 2 min.")
         time.sleep(120)
+        refreshed = read_last_refresh() or refreshed
 
     # Operaciones por item: en v53, solo las horas del test (tabla horaria); antes, el día completo.
     scope = "hour" if version == "v53" else "day"
@@ -99,7 +118,7 @@ try:
             ios += evaluate(item_operation_query(version, cap, day)).to_dict("records")
 
     metrics = analyze(tps, ios, window, item_id, tooling, margin_min=int(margin_minutes), version=version, capacity_id=cap,
-                      utc_offset_hours=offset, operations_scope=scope)
+                      utc_offset_hours=offset, operations_scope=scope, last_refresh=refreshed, capacity_in_app=known)
 except Exception as exc:
     metrics = {"error": f"{type(exc).__name__}: {exc}"}
 

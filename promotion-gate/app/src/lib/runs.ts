@@ -1,4 +1,4 @@
-import { client, ensureRayfinSession, rayfinUser } from './rayfinClient';
+import { rayfin, ensureRayfinSession, rayfinUser } from './rayfinClient';
 import type { RunRecord } from './types';
 
 /**
@@ -77,20 +77,20 @@ export class RayfinRunStore implements RunStore {
   shared = true;
 
   async list() {
-    const rows = (await client.data.GateRun.select([...FIELDS] as never).orderBy({ started_at: 'desc' } as never)
+    const rows = (await rayfin().data.GateRun.select([...FIELDS] as never).orderBy({ started_at: 'desc' } as never)
       .first(200).execute()) as unknown as Record<string, unknown>[];
     return rows.map(fromRow);
   }
 
   async save(run: RunRecord) {
     const user = rayfinUser();
-    const created = (await client.data.GateRun.create(toRow({ ...run, user_id: user.id ?? run.user_id }) as never)) as unknown;
+    const created = (await rayfin().data.GateRun.create(toRow({ ...run, user_id: user.id ?? run.user_id }) as never)) as unknown;
     return fromRow({ ...run, ...(created as Record<string, unknown>) });
   }
 
   async update(run: RunRecord, patch: Partial<RunRecord>) {
     if (!run.id) return { ...run, ...patch };
-    await client.data.GateRun.update({ id: run.id } as never, toRow(patch) as never);
+    await rayfin().data.GateRun.update({ id: run.id } as never, toRow(patch) as never);
     return { ...run, ...patch };
   }
 }

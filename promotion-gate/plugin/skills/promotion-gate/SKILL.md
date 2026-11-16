@@ -26,7 +26,8 @@ explicas. La lógica de decisión está en el paquete `promotion_gate` y no se n
 Pregunta solo lo que no esté en `deploy/.deployment.json` (lo escribe `deploy/deploy.ps1`: `tools_workspace_id`,
 `lakehouse_id`, `capacity_metrics_workspace`) o en el `.env` (`DEPLOYMENT_PIPELINE_ID`...):
 
-- Nombre exacto del modelo (`dataset`) y workspace donde vive en el stage de test (`model_workspace`).
+- Nombre exacto del modelo (`dataset`) y **nombre** (no GUID) del workspace donde vive en el stage de test
+  (`model_workspace`). `smgate run` resuelve un GUID a su nombre, pero pide el nombre.
 - El JSON de Performance Analyzer con la navegación real de los usuarios. Sin él no hay test de carga: ver `load-test-run`.
 - Usuarios concurrentes que debe aguantar en producción (`load_test.target_level`) y la rampa (`ramp_levels`), que debe llegar a ese nivel.
 - Si el modelo usa RLS: UPNs de prueba para `rls_users`, o un fichero del lakehouse con un UPN por línea para `rls_users_file` (no los escribas en ficheros versionados).
@@ -45,7 +46,7 @@ Pregunta solo lo que no esté en `deploy/.deployment.json` (lo escribe `deploy/d
 
 ```powershell
 smgate run --workspace-id $env:GATE_WORKSPACE_ID --lakehouse-id $env:GATE_LAKEHOUSE_ID --wait --out out/<modelo> `
-  --param dataset="<modelo>" --param model_workspace="<workspace test>" --param model_key=<clave_sin_espacios> `
+  --param dataset="<modelo>" --param model_workspace="<nombre del workspace de test, no GUID>" --param model_key=<clave_sin_espacios> `
   --param queryfile=/lakehouse/default/Files/PerfScenarios/Queries/<fichero>.json `
   --param ramp_levels="[6,20,60]" --param capacity_metrics_workspace="$env:CAPACITY_METRICS_WORKSPACE"
 ```
@@ -61,7 +62,8 @@ Si una fase no tiene evidencia, dilo y propón repetir solo esa fase con `smgate
 
 ## 5. Promoción
 
-Solo con `promotable: true` y OK explícito del usuario para ese modelo y ese run:
+Solo con `promotable: true` y OK explícito del usuario para ese modelo y ese run (`smgate promote` además rechaza un
+`verdict.json` cuyo `promotable` no cuadre con `verdict` y sus comprobaciones):
 
 ```powershell
 smgate promote --verdict out/<modelo>/verdict.json --deployment-pipeline-id $env:DEPLOYMENT_PIPELINE_ID `

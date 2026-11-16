@@ -87,14 +87,15 @@ historial.
 
 | Qué | Para qué |
 |---|---|
-| Workspace de herramientas con capacidad (F4 o superior) | Orquestador, gate y Spark del generador de carga. Mejor en una capacidad distinta de la del modelo, para no contaminar la medida |
+| Workspace de herramientas con capacidad (F4 o superior, de pago) | Orquestador, gate y Spark del generador de carga. Mejor en una capacidad distinta de la del modelo, para no contaminar la medida. En capacidades pequeñas de prueba los notebooks pueden fallar con `TooManyRequestsForCapacity` (HTTP 430): la capacidad se queda sin Spark VCores (una FTL4 tiene 8, 16 con burst) y [las capacidades de prueba no encolan trabajos](https://learn.microsoft.com/fabric/data-engineering/job-queueing-for-fabric-spark#queue-sizes). Subir `vCores` no ayuda; usa una capacidad mayor (en la revisión funcionó con una de prueba clase F64) |
 | Workspace para la app en una región que admita Fabric Apps | En Spain Central no se pueden desplegar; Sweden Central sí. Puede ser una F2 |
-| App [Fabric Capacity Metrics](https://learn.microsoft.com/fabric/enterprise/metrics-app-install) instalada (v40 o posterior) | Fase de capacidad. La identidad que ejecuta el gate necesita lectura en su workspace |
+| App [Fabric Capacity Metrics](https://learn.microsoft.com/fabric/enterprise/metrics-app-install) instalada (v40 o posterior) con su modelo semántico refrescándose sin errores | Fase de capacidad. La identidad que ejecuta el gate necesita lectura en su workspace. La app refleja el consumo en [10 a 15 minutos](https://learn.microsoft.com/fabric/enterprise/metrics-app#data-latency); el gate sondea hasta `metrics_lag_minutes`. Antes de un gate comprueba el último refresco del modelo (workspace de Capacity Metrics, modelo semántico, **Historial de actualización**): si falla o es antiguo, refréscalo. Si una fase de capacidad se queda sin datos, `capacity.json` y el informe dicen el último timepoint, el último refresco del modelo y si la capacidad ya está en la app |
 | Ajustes de tenant: Fabric data apps (Rayfin), endpoint XMLA de lectura y «Dataset Execute Queries REST API» | Desplegar la app, BPA y VertiPaq, y el escenario sintético |
 | Contributor en el workspace de herramientas y en el del modelo | Lanzar el pipeline y leer el modelo por TOM |
 | Un deployment pipeline test → prod (opcional) | Solo para la firma y promoción desde la app |
 
-**En tu equipo:** PowerShell 7, Azure CLI con sesión (`az login`), Python 3.10 o posterior y Node 20 o posterior.
+**En tu equipo:** PowerShell 7, Azure CLI con sesión (`az login`), Python 3.10 o posterior y Node 20, 22 o 24
+(`rayfin-cli` no declara otras versiones; con Node 26 `npm ci` avisa con `EBADENGINE`).
 Para crear el registro de la app en Entra hace falta poder crear registros de aplicación; si no, pide uno de tipo SPA
 y pásalo con `-SpaClientId`.
 
@@ -276,6 +277,13 @@ smgate run --workspace-id <tools> --lakehouse-id <lh_gate> --wait --out out\vent
   --param stop_on_review_fail=false
 ```
 
+`model_workspace` es el **nombre** del workspace del modelo, no su GUID: el orquestador construye la dirección XMLA con
+él. Si pasas un GUID, `smgate run` lo resuelve a su nombre antes de lanzar y `NB_Gate_ModelReview` hace lo mismo
+dentro del pipeline.
+
+`smgate promote` no se fía solo de `promotable`: exige que coincida con `verdict` (PASS, o WARN si
+`warn_blocks_promotion` es `false`) y con el peor estado de las comprobaciones del propio `verdict.json`.
+
 - **CI:** `ci/github/promotion-gate.yml` y `ci/azure-devops/promotion-gate.yml` lanzan el gate en cada PR del modelo y
   promocionan tras la aprobación del entorno `production`.
 - **Plugin:** `plugin/` tiene cinco skills y un agente para pedirlo en lenguaje natural («el modelo Ventas está listo
@@ -324,7 +332,9 @@ Más usuarios por nivel alargan sobre todo el test de carga. Desglose y lo que s
 | La app se queda sin sesión tras el login | Ábrela desde el portal (`app_portal`) y recarga con Ctrl+F5. El registro SPA necesita `<hosting>/blank.html` como redirect URI; `deploy.ps1` la añade |
 | «Falta configuración de la app» | Falta `app/.env`: ejecuta el paso `app` de `deploy.ps1` o copia `app/.env.example` |
 | Todas las consultas del test fallan con «Authentication failed for all authenticators» | Orquestador anterior a la autenticación con semantic-link (3.4.0): repite el paso `orchestrator` |
-| Capacity Metrics «sin datos en la ventana del test» | La app tarda en reflejar el consumo: sube `metrics_lag_minutes` o repite solo `NB_Gate_CapacityMetrics` y `NB_Gate_Verdict` con `smgate run-item` |
+| Capacity Metrics «sin datos en la ventana del test» | El mensaje da el último timepoint, el último refresco del modelo de Capacity Metrics y si la capacidad está en la app. Lo normal es el retraso de la app (10 a 15 min): sube `metrics_lag_minutes` o repite solo `NB_Gate_CapacityMetrics` y `NB_Gate_Verdict` con `smgate run-item` más tarde. Si sigue sin datos y el último refresco es anterior al test, refresca el modelo de Capacity Metrics antes de repetir |
+| `TooManyRequestsForCapacity` (HTTP 430) en los notebooks del gate | La capacidad de herramientas se ha quedado sin Spark VCores (típico en capacidades de prueba pequeñas, que no encolan). Subir `vCores` no ayuda: usa una capacidad mayor |
+| El test de carga falla con «The specified Power BI workspace is not found» | `model_workspace` no es un nombre de workspace válido. El gate ya resuelve los GUID; comprueba el nombre exacto |
 | «Operaciones del modelo pendientes en Capacity Metrics» (omitido) | La tabla por item y hora aún no incluye el test. No bloquea; la utilización y el throttling sí están medidos. Repite `NB_Gate_CapacityMetrics` más tarde para ver CU y operaciones |
 | Capacity Metrics con datos de otra hora | La app guarda los timepoints en la hora local de su instalación (`'Latest Summary Timestamp'[UTC Offset]`). El gate lo lee y convierte a UTC; el informe dice qué desfase usó |
 | «Consumo del propio generador de carga» con observaciones | El modelo y el workspace de herramientas comparten capacidad. Pon el modelo en otra capacidad |
@@ -338,7 +348,7 @@ Más usuarios por nivel alargan sobre todo el test de carga. Desglose y lo que s
 cd promotion-gate
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -e ".[cli,dev]"
-python -m pytest                      # 69 tests, sin Fabric
+python -m pytest                      # 74 tests, sin Fabric
 
 cd app
 npm ci
@@ -358,5 +368,6 @@ pwsh promotion-gate/deploy/teardown.ps1 -ToolsWorkspace "Load Testing" -AppWorks
 ```
 
 Lista lo que borraría; sin `-WhatIf` lo borra tras escribir el nombre del workspace. Quita `NB_Gate_*`,
-`PL_PromotionGate` y, con `-App`, la app. Conserva el orquestador, el lakehouse, los runs y las tablas `gate_*`, que son
+`PL_PromotionGate` y, con `-App`, la app y su base de datos SQL (el historial de runs de la app; el script lo avisa
+antes de pedir confirmación). Conserva el orquestador, el lakehouse, los runs y las tablas `gate_*`, que son
 la auditoría de promociones. El registro `promotion-gate-app` de Entra y la carpeta **Ventas Retail** se borran a mano.

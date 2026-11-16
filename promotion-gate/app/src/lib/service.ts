@@ -2,7 +2,7 @@ import { parse as parseYaml } from 'yaml';
 import { env } from './env';
 import * as api from './fabric';
 import {
-  activitiesMentionRun, candidateJobs, phaseStatuses, pipelineParams, promotionPath,
+  activitiesMentionRun, candidateJobs, gateRejected, phaseStatuses, pipelineParams, promotionPath,
   type LaunchForm, type PhaseStatus, type PromotionPath,
 } from './gate';
 import { currentAccount, getToken, signIn, SignInRequiredError } from './msal';
@@ -22,6 +22,8 @@ export interface Progress {
   phases: PhaseStatus[];
   levels: LevelProgress[];
   failure?: string;
+  /** El pipeline falló porque Fail_Gate rechazó el modelo, no por un error. */
+  gateRejected?: boolean;
 }
 export interface PromoteResult { status: string; operationId?: string }
 
@@ -137,7 +139,8 @@ export class FabricGateService implements GateService {
     const pid = await this.pipeline();
     const [job, acts] = await Promise.all([api.getJob(this.ws, pid, jobId), api.queryActivityRuns(this.ws, jobId, since)]);
     const levels = await this.levels(runId).catch(() => []);
-    return { jobStatus: job.status, phases: phaseStatuses(acts, job.status), levels, failure: job.failureReason?.message };
+    return { jobStatus: job.status, phases: phaseStatuses(acts, job.status), levels, failure: job.failureReason?.message,
+      gateRejected: gateRejected(acts) };
   }
 
   /** Niveles de la rampa ya iniciados (carpeta) y terminados (summary.json del orquestador 3.4.0). */

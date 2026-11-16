@@ -13,7 +13,7 @@ description: >-
 
 ```powershell
 smgate run-item --workspace-id $env:GATE_WORKSPACE_ID --name NB_Gate_ModelReview --wait `
-  --param run_id=<run_id> --param dataset="<modelo>" --param model_workspace="<workspace>"
+  --param run_id=<run_id> --param dataset="<modelo>" --param model_workspace="<nombre del workspace, no GUID>"
 smgate fetch --workspace-id $env:GATE_WORKSPACE_ID --lakehouse-id $env:GATE_LAKEHOUSE_ID --run-id <run_id> --out out/<modelo>
 ```
 
