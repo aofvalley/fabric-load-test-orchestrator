@@ -1,0 +1,153 @@
+{
+ "models": [
+  {
+   "model_key": "ventas",
+   "model": "Ventas",
+   "queries_per_user": 3,
+   "levels": [
+    {
+     "level": 6,
+     "run_id": "gate-demo-20261104-101500-ventas-c6-20261104-100000",
+     "users_seen": 6,
+     "queries": 18,
+     "recorded_queries": 18,
+     "expected_queries": 18,
+     "failed_queries": 0,
+     "errored_queries": 0,
+     "error_rate": 0.0,
+     "error_log_lines": 0,
+     "error_samples": [],
+     "mean": 1.0933333333333333,
+     "p50": 0.82,
+     "p90": 2.0660000000000003,
+     "p95": 2.083,
+     "p99": 2.0966,
+     "max": 2.1,
+     "qps": 2.29,
+     "start_utc": "2026-10-26T07:33:20Z",
+     "end_utc": "2026-10-26T07:33:27.860000Z",
+     "duration_s": 7.9
+    },
+    {
+     "level": 20,
+     "run_id": "gate-demo-20261104-101500-ventas-c20-20261104-100500",
+     "users_seen": 20,
+     "queries": 60,
+     "recorded_queries": 60,
+     "expected_queries": 60,
+     "failed_queries": 0,
+     "errored_queries": 0,
+     "error_rate": 0.0,
+     "error_log_lines": 0,
+     "error_samples": [],
+     "mean": 1.898,
+     "p50": 0.876,
+     "p90": 4.524,
+     "p95": 4.6419999999999995,
+     "p99": 4.7364,
+     "max": 4.76,
+     "qps": 3.39,
+     "start_utc": "2026-10-26T07:35:00Z",
+     "end_utc": "2026-10-26T07:35:17.688000Z",
+     "duration_s": 17.7
+    },
+    {
+     "level": 60,
+     "run_id": "gate-demo-20261104-101500-ventas-c60-20261104-101500",
+     "users_seen": 58,
+     "queries": 170,
+     "recorded_queries": 174,
+     "expected_queries": 180,
+     "failed_queries": 10,
+     "errored_queries": 4,
+     "error_rate": 0.0556,
+     "error_log_lines": 2,
+     "error_samples": [
+      "AdomdErrorResponseException: The operation was throttled; user <upn>",
+      "Data Source=powerbi://api.powerbi.com/v1.0/myorg/ws;Password=<redacted>;EffectiveUserName=<upn>  : The operation was throttled",
+      "Data Source=powerbi://api.powerbi.com/v1.0/myorg/ws;Password=<redacted>;EffectiveUserName=<upn>  : The operation was throttled"
+     ],
+     "mean": 4.387823529411764,
+     "p50": 1.036,
+     "p90": 12.609,
+     "p95": 13.3695,
+     "p99": 13.9779,
+     "max": 14.13,
+     "qps": 3.12,
+     "start_utc": "2026-10-26T07:38:20Z",
+     "end_utc": "2026-10-26T07:39:14.500000Z",
+     "duration_s": 54.5
+    }
+   ],
+   "slow_visuals": [
+    {
+     "visual": "Matriz detalle",
+     "level": 60,
+     "count": 57,
+     "p50": 11.52,
+     "p95": 13.878,
+     "max": 14.13,
+     "p95_first_level": 2.095,
+     "growth": 6.62,
+     "slow": true
+    },
+    {
+     "visual": "Top clientes",
+     "level": 60,
+     "count": 57,
+     "p50": 1.032,
+     "p95": 1.234,
+     "max": 1.256,
+     "p95_first_level": 0.838,
+     "growth": 1.47,
+     "slow": false
+    },
+    {
+     "visual": "Ventas por mes",
+     "level": 60,
+     "count": 56,
+     "p50": 0.514,
+     "p95": 0.617,
+     "max": 0.628,
+     "p95_first_level": 0.419,
+     "growth": 1.47,
+     "slow": false
+    }
+   ],
+   "slow_queries": [
+    {
+     "visual": "Matriz detalle",
+     "query_number": 3,
+     "level": 60,
+     "p95": 13.878,
+     "mean": 11.553,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 3])"
+    },
+    {
+     "visual": "Top clientes",
+     "query_number": 2,
+     "level": 60,
+     "p95": 1.234,
+     "mean": 1.029,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 2])"
+    },
+    {
+     "visual": "Ventas por mes",
+     "query_number": 1,
+     "level": 60,
+     "p95": 0.617,
+     "mean": 0.514,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 1])"
+    }
+   ]
+  }
+ ],
+ "window": {
+  "start_utc": "2026-10-26T07:33:20Z",
+  "end_utc": "2026-10-26T07:39:14.500000Z"
+ },
+ "run_prefix": "gate-demo-20261104-101500"
+}

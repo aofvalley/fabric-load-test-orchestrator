@@ -1,0 +1,101 @@
+{
+ "dataset": "Ventas",
+ "item_id": "11111111-2222-3333-4444-555555555555",
+ "workspace": "Ventas [Test]",
+ "findings": [
+  {
+   "rule": "Do not use floating point data types",
+   "category": "Performance",
+   "severity": "Warning",
+   "object_type": "Column",
+   "object_name": "'Hechos'[Importe]",
+   "description": "",
+   "url": "https://learn.microsoft.com/power-bi/connect-data/desktop-data-types"
+  },
+  {
+   "rule": "Do not use floating point data types",
+   "category": "Performance",
+   "severity": "Warning",
+   "object_type": "Column",
+   "object_name": "'Hechos'[Coste]",
+   "description": "",
+   "url": ""
+  },
+  {
+   "rule": "Use the DIVIDE function for division",
+   "category": "DAX Expressions",
+   "severity": "Warning",
+   "object_type": "Measure",
+   "object_name": "Margen %",
+   "description": "",
+   "url": ""
+  },
+  {
+   "rule": "Set IsAvailableInMdx to false on non-attribute columns",
+   "category": "Performance",
+   "severity": "Warning",
+   "object_type": "Column",
+   "object_name": "'Hechos'[IdTransaccion]",
+   "description": "",
+   "url": ""
+  },
+  {
+   "rule": "Provide format string for measures",
+   "category": "Formatting",
+   "severity": "Info",
+   "object_type": "Measure",
+   "object_name": "Ventas",
+   "description": "Las medidas visibles deberían tener formato.",
+   "url": ""
+  }
+ ],
+ "vertipaq": {
+  "model_size_mb": 3200.0,
+  "top_columns": [
+   {
+    "table": "Hechos",
+    "column": "IdTransaccion",
+    "size_mb": 1100.0,
+    "pct_of_model": 34.4,
+    "cardinality": 48000000,
+    "data_type": "String"
+   },
+   {
+    "table": "Hechos",
+    "column": "FechaHora",
+    "size_mb": 420.0,
+    "pct_of_model": 13.1,
+    "cardinality": 9000000,
+    "data_type": "DateTime"
+   },
+   {
+    "table": "Hechos",
+    "column": "Importe",
+    "size_mb": 310.0,
+    "pct_of_model": 9.7,
+    "cardinality": 2100000,
+    "data_type": "Double"
+   },
+   {
+    "table": "Cliente",
+    "column": "Email",
+    "size_mb": 140.0,
+    "pct_of_model": 4.4,
+    "cardinality": 850000,
+    "data_type": "String"
+   }
+  ],
+  "top_tables": [
+   {
+    "table": "Hechos",
+    "rows": 48000000,
+    "size_mb": 2600.0
+   },
+   {
+    "table": "Cliente",
+    "rows": 850000,
+    "size_mb": 380.0
+   }
+  ]
+ }
+}

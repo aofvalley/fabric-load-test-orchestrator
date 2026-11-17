@@ -1,0 +1,51 @@
+{
+ "version": "v53",
+ "capacity_id": "0f0f0f0f-1111-2222-3333-444444444444",
+ "timepoints_in_window": 42,
+ "covers_window_end": true,
+ "peak_utilization_pct": 86.4,
+ "avg_utilization_pct": 51.0,
+ "peak_interactive_delay_pct": 92.0,
+ "peak_interactive_rejection_pct": 12.0,
+ "peak_background_rejection_pct": 3.0,
+ "peak_carryover_pct": 4.0,
+ "model": {
+  "item_id": "11111111-2222-3333-4444-555555555555",
+  "found": true,
+  "cu_s": 5400.0,
+  "failed_operations": 3,
+  "rejected_operations": 0,
+  "throttling_min": 1.5,
+  "operations": [
+   {
+    "operation": "Query",
+    "cu_s": 5100.0,
+    "duration_s": 2900.0,
+    "operations": 2280,
+    "failed": 3,
+    "rejected": 0,
+    "throttling_min": 1.5,
+    "cu_s_per_operation": 2.237
+   },
+   {
+    "operation": "Dataset On-Demand Refresh",
+    "cu_s": 300.0,
+    "duration_s": 600.0,
+    "operations": 1,
+    "failed": 0,
+    "rejected": 0,
+    "throttling_min": 0.0,
+    "cu_s_per_operation": 300.0
+   }
+  ]
+ },
+ "tooling": {
+  "workspace_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  "cu_s": 900.0,
+  "share_pct": 7.5
+ },
+ "window": {
+  "start_utc": "2026-10-26T07:33:20Z",
+  "end_utc": "2026-10-26T07:39:14.500000Z"
+ }
+}

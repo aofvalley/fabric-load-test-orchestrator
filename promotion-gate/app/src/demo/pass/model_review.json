@@ -1,0 +1,74 @@
+{
+ "dataset": "Ventas",
+ "item_id": "11111111-2222-3333-4444-555555555555",
+ "workspace": "Ventas [Test]",
+ "findings": [
+  {
+   "rule": "Use the DIVIDE function for division",
+   "category": "DAX Expressions",
+   "severity": "Warning",
+   "object_type": "Measure",
+   "object_name": "Margen %",
+   "description": "",
+   "url": ""
+  },
+  {
+   "rule": "Provide format string for measures",
+   "category": "Formatting",
+   "severity": "Info",
+   "object_type": "Measure",
+   "object_name": "Ventas",
+   "description": "Las medidas visibles deberían tener formato.",
+   "url": ""
+  }
+ ],
+ "vertipaq": {
+  "model_size_mb": 1850.0,
+  "top_columns": [
+   {
+    "table": "Hechos",
+    "column": "FechaHora",
+    "size_mb": 300.0,
+    "pct_of_model": 16.2,
+    "cardinality": 9000000,
+    "data_type": "DateTime"
+   },
+   {
+    "table": "Hechos",
+    "column": "IdTransaccion",
+    "size_mb": 190.0,
+    "pct_of_model": 10.3,
+    "cardinality": 48000000,
+    "data_type": "Int64"
+   },
+   {
+    "table": "Hechos",
+    "column": "Importe",
+    "size_mb": 120.0,
+    "pct_of_model": 6.5,
+    "cardinality": 2100000,
+    "data_type": "Decimal"
+   },
+   {
+    "table": "Cliente",
+    "column": "Email",
+    "size_mb": 140.0,
+    "pct_of_model": 7.6,
+    "cardinality": 850000,
+    "data_type": "String"
+   }
+  ],
+  "top_tables": [
+   {
+    "table": "Hechos",
+    "rows": 48000000,
+    "size_mb": 1300.0
+   },
+   {
+    "table": "Cliente",
+    "rows": 850000,
+    "size_mb": 380.0
+   }
+  ]
+ }
+}

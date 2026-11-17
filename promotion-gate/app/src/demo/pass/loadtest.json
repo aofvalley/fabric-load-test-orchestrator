@@ -1,0 +1,149 @@
+{
+ "models": [
+  {
+   "model_key": "ventas",
+   "model": "Ventas",
+   "queries_per_user": 3,
+   "levels": [
+    {
+     "level": 6,
+     "run_id": "gate-demo-20261105-101500-ventas-c6-20261105-100000",
+     "users_seen": 6,
+     "queries": 18,
+     "recorded_queries": 18,
+     "expected_queries": 18,
+     "failed_queries": 0,
+     "errored_queries": 0,
+     "error_rate": 0.0,
+     "error_log_lines": 0,
+     "error_samples": [],
+     "mean": 0.82,
+     "p50": 0.82,
+     "p90": 1.2396,
+     "p95": 1.2498,
+     "p99": 1.25796,
+     "max": 1.26,
+     "qps": 2.56,
+     "start_utc": "2026-10-27T07:33:20Z",
+     "end_utc": "2026-10-27T07:33:27.020000Z",
+     "duration_s": 7.0
+    },
+    {
+     "level": 20,
+     "run_id": "gate-demo-20261105-101500-ventas-c20-20261105-100500",
+     "users_seen": 20,
+     "queries": 60,
+     "recorded_queries": 60,
+     "expected_queries": 60,
+     "failed_queries": 0,
+     "errored_queries": 0,
+     "error_rate": 0.0,
+     "error_log_lines": 0,
+     "error_samples": [],
+     "mean": 0.9855,
+     "p50": 0.876,
+     "p90": 1.6965000000000001,
+     "p95": 1.74075,
+     "p99": 1.77615,
+     "max": 1.785,
+     "qps": 4.08,
+     "start_utc": "2026-10-27T07:35:00Z",
+     "end_utc": "2026-10-27T07:35:14.713000Z",
+     "duration_s": 14.7
+    },
+    {
+     "level": 60,
+     "run_id": "gate-demo-20261105-101500-ventas-c60-20261105-101500",
+     "users_seen": 60,
+     "queries": 180,
+     "recorded_queries": 180,
+     "expected_queries": 180,
+     "failed_queries": 0,
+     "errored_queries": 0,
+     "error_rate": 0.0,
+     "error_log_lines": 0,
+     "error_samples": [],
+     "mean": 1.4676666666666667,
+     "p50": 1.036,
+     "p90": 3.1041999999999996,
+     "p95": 3.3011,
+     "p99": 3.4586200000000002,
+     "max": 3.498,
+     "qps": 4.88,
+     "start_utc": "2026-10-27T07:38:20Z",
+     "end_utc": "2026-10-27T07:38:56.906000Z",
+     "duration_s": 36.9
+    }
+   ],
+   "slow_visuals": [
+    {
+     "visual": "Matriz detalle",
+     "level": 60,
+     "count": 60,
+     "p50": 2.849,
+     "p95": 3.433,
+     "max": 3.498,
+     "p95_first_level": 1.257,
+     "growth": 2.73,
+     "slow": false
+    },
+    {
+     "visual": "Top clientes",
+     "level": 60,
+     "count": 60,
+     "p50": 1.036,
+     "p95": 1.248,
+     "max": 1.272,
+     "p95_first_level": 0.838,
+     "growth": 1.49,
+     "slow": false
+    },
+    {
+     "visual": "Ventas por mes",
+     "level": 60,
+     "count": 60,
+     "p50": 0.518,
+     "p95": 0.624,
+     "max": 0.636,
+     "p95_first_level": 0.419,
+     "growth": 1.49,
+     "slow": false
+    }
+   ],
+   "slow_queries": [
+    {
+     "visual": "Matriz detalle",
+     "query_number": 3,
+     "level": 60,
+     "p95": 3.433,
+     "mean": 2.849,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 3])"
+    },
+    {
+     "visual": "Top clientes",
+     "query_number": 2,
+     "level": 60,
+     "p95": 1.248,
+     "mean": 1.036,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 2])"
+    },
+    {
+     "visual": "Ventas por mes",
+     "query_number": 1,
+     "level": 60,
+     "p95": 0.624,
+     "mean": 0.518,
+     "rows": 12,
+     "dax": "EVALUATE SUMMARIZECOLUMNS('Fecha'[Mes], \"x\", [Ventas 1])"
+    }
+   ]
+  }
+ ],
+ "window": {
+  "start_utc": "2026-10-27T07:33:20Z",
+  "end_utc": "2026-10-27T07:38:56.906000Z"
+ },
+ "run_prefix": "gate-demo-20261105-101500"
+}

@@ -1,0 +1,37 @@
+# Umbrales del gate de promoción. Solo hace falta poner lo que cambia frente a los valores por defecto
+# (src/promotion_gate/config.py). `smgate deploy` sube este fichero a Files/PromotionGate/config/gate.yaml.
+# Un modelo concreto puede pasar sus propios umbrales en el parámetro gate_config del pipeline (JSON).
+
+model_review:
+  max_errors: 0                 # reglas BPA de severidad Error
+  max_warnings: 30
+  blocking_rules:               # bloquean aunque sean Warning
+    - Do not use floating point data types
+    - Check if bi-directional and many-to-many relationships are valid
+  ignored_rules: []             # excepciones aceptadas: quedan registradas en el informe
+  sku: F64                      # SKU de la capacidad de producción
+  max_model_memory_pct_of_sku: 50
+  max_column_pct_of_model: 20
+  min_model_mb_for_column_check: 100   # por debajo, el reparto entre columnas no es significativo
+
+load_test:
+  target_level: 60              # usuarios concurrentes que debe sostener en producción
+  p50_sec: 1.5
+  p95_sec: 4.0
+  max_error_rate: 0.01
+  max_p95_growth_ratio: 3.0
+  min_p95_sec_for_growth_check: 1.0   # por debajo de este p95 la degradación es ruido y no se evalúa
+  slow_query_sec: 5.0
+  min_levels: 2
+
+capacity:
+  required: true
+  max_utilization_pct: 80
+  warn_interactive_delay_pct: 80
+  max_interactive_delay_pct: 100
+  warn_interactive_rejection_pct: 50
+  max_model_failed_operations: 0
+  max_tooling_cu_share_pct: 25
+
+verdict:
+  warn_blocks_promotion: false  # true = solo PASS promociona

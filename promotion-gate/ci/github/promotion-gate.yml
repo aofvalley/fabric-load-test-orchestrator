@@ -1,0 +1,97 @@
+# Plantilla: copia este fichero a .github/workflows/ del repo del equipo y ajusta working-directory.
+# Gate de promoción de un modelo semántico y promoción con aprobación del environment "production".
+#
+# Secretos/variables (sin valores en el repo):
+#   secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID           (federated credential OIDC del service principal)
+#   vars:    GATE_WORKSPACE_ID, GATE_LAKEHOUSE_ID, CAPACITY_METRICS_WORKSPACE,
+#            DEPLOYMENT_PIPELINE_ID, STAGE_TEST_ID, STAGE_PROD_ID
+# El service principal necesita: tenant setting «Service principals can use Fabric APIs», Contributor en el
+# workspace de herramientas y en el del modelo (stage test), lectura en el de Capacity Metrics y Admin del
+# deployment pipeline (o Contributor en los dos stages).
+name: semantic-model-promotion-gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset: { description: "Nombre exacto del modelo en el stage de test", required: true }
+      model_workspace: { description: "Workspace del modelo en el stage de test", required: true }
+      model_key: { description: "Clave corta sin espacios", required: true }
+      queryfile: { description: "JSON de Performance Analyzer en el lakehouse", required: true,
+                   default: "/lakehouse/default/Files/PerfScenarios/Queries/PowerBIPerformanceData.json" }
+      ramp_levels: { description: "Rampa de usuarios (JSON)", required: true, default: "[6,20,60]" }
+
+permissions:
+  id-token: write
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+    working-directory: fabric-semantic-model-promotion-gate
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      promotable: ${{ steps.gate.outputs.promotable }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -e ".[cli]"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - id: gate
+        env:
+          DATASET: ${{ inputs.dataset }}
+          MODEL_WS: ${{ inputs.model_workspace }}
+          MODEL_KEY: ${{ inputs.model_key }}
+          QUERYFILE: ${{ inputs.queryfile }}
+          RAMP: ${{ inputs.ramp_levels }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}   # smgate renueva el login OIDC en runs de más de 1 h
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run: |
+          set +e
+          smgate run --workspace-id "${{ vars.GATE_WORKSPACE_ID }}" --lakehouse-id "${{ vars.GATE_LAKEHOUSE_ID }}" \
+            --wait --out out \
+            --param dataset="$DATASET" --param model_workspace="$MODEL_WS" --param model_key="$MODEL_KEY" \
+            --param queryfile="$QUERYFILE" --param ramp_levels="$RAMP" \
+            --param capacity_metrics_workspace="${{ vars.CAPACITY_METRICS_WORKSPACE }}" \
+            --param requested_by="${{ github.actor }}" --param source_ref="${{ github.sha }}"
+          rc=$?
+          [ -f out/report.md ] && cat out/report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "promotable=$([ $rc -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: promotion-gate
+          path: fabric-semantic-model-promotion-gate/out/
+
+  promote:
+    needs: gate
+    if: needs.gate.outputs.promotable == 'true'
+    runs-on: ubuntu-latest
+    environment: production   # configura revisores obligatorios en el environment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -e ".[cli]"
+      - uses: actions/download-artifact@v4
+        with:
+          name: promotion-gate
+          path: fabric-semantic-model-promotion-gate/out/
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - run: |
+          smgate promote --verdict out/verdict.json --deployment-pipeline-id "${{ vars.DEPLOYMENT_PIPELINE_ID }}" \
+            --source-stage-id "${{ vars.STAGE_TEST_ID }}" --target-stage-id "${{ vars.STAGE_PROD_ID }}" \
+            --note "Gate run ${{ github.run_id }} por ${{ github.actor }}"

@@ -1,0 +1,60 @@
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+/*
+ * Mundo: certificado de aptitud para el servicio (EASA Form 1) y etiquetas de estado.
+ * Papel de formulario frío, tinta azul marino, sello ultramar para autorizar y cartulinas de color para el estado.
+ */
+:root {
+  --paper: #eef0eb;
+  --sheet: #fbfbf9;
+  --sheet-2: #f5f6f2;
+  --ink: #15233f;
+  --ink-2: #44526e;
+  --ink-3: #5a6680;
+  --rule: #cdd2da;
+  --rule-strong: #15233f;
+  --rail: #15233f;
+  --rail-ink: #e6e9f0;
+  --rail-ink-2: #9aa6bd;
+  --rail-active: #24365b;
+
+  --stamp: #2244c4;
+  --stamp-ink: #ffffff;
+  --stamp-soft: #e4e9fb;
+
+  --ok: #1d7347;
+  --ok-stock: #d7ecdf;
+  --ok-tag: #1f7a4a;
+  --warn: #7a4e00;
+  --warn-stock: #f7dc7a;
+  --warn-tag: #e9bd2f;
+  --fail: #a8231a;
+  --fail-stock: #f8d8d3;
+  --fail-tag: #c8362a;
+  --skip: #5d6a82;
+  --skip-stock: #e3e6ec;
+
+  --font: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+
+  --fs-xs: 0.6875rem;
+  --fs-sm: 0.8125rem;
+  --fs-md: 0.9375rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 2.125rem;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --radius: 3px;
+  --shadow-sheet: 0 1px 2px rgba(21, 35, 63, 0.06), 0 6px 18px -8px rgba(21, 35, 63, 0.18);
+  --shadow-tag: 0 2px 3px rgba(21, 35, 63, 0.12), 0 14px 28px -12px rgba(21, 35, 63, 0.35);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

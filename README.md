@@ -42,6 +42,23 @@ PL_PerfTest_MultiModel_v3                         parent pipeline
 Two pipelines are needed because Fabric does not allow a `ForEach` inside another `ForEach`. Details in
 [docs/architecture.md](docs/architecture.md).
 
+## Promotion gate (dev → prod)
+
+[`promotion-gate/`](promotion-gate/README.md) turns a load test into a **promotion decision** for a semantic model. Before a model
+moves from test to production, the gate runs the Best Practice Analyzer, a full ramp with this orchestrator and a read of Fabric
+Capacity Metrics for the test window, and issues a certificate (PASS, WARN or FAIL) with prioritised improvements. Teams use it from a
+**Fabric App** built with Rayfin, from the `smgate` CLI, from CI or from a Copilot CLI / Claude Code plugin. It is versioned on its own
+([promotion-gate/CHANGELOG.md](promotion-gate/CHANGELOG.md)) and needs this orchestrator 3.4.0 or later.
+
+```powershell
+pwsh promotion-gate/deploy/deploy.ps1 -ToolsWorkspace "<tools workspace>" -AppWorkspace "<app workspace>" `
+  -CapacityMetricsWorkspace "<Capacity Metrics workspace>" -SuccessCase -SuccessCaseWorkspace "<models workspace>" -WhatIf
+```
+
+The gate documentation is in Spanish.
+
+![Promotion certificate in the Fabric App](promotion-gate/docs/img/03-certificado-apto.png)
+
 ## Repository layout
 
 ```text
@@ -53,6 +70,7 @@ samples/        sample_performance_data.json (synthetic), models.example.json, m
 tests/          pytest suite
 docs/           architecture, deployment, parameters, analysis, changes from upstream, Spanish guide (docs/es)
 upstream/       exact copies of the original files (do not edit)
+promotion-gate/ promotion gate for semantic models (own versioning): Python package, notebooks, pipeline, Fabric App, deployment, docs
 ```
 
 ## Quick start
