@@ -2,6 +2,13 @@
 
 El gate se versiona aparte del Fabric Load Test Orchestrator (`pyproject.toml`).
 
+## Sin publicar
+
+- App en el portal de Fabric: el primer inicio de sesión ya no falla con `timed_out`. La ventana de login se abre fuera
+  del iframe y, la primera vez, pasa por el intersticial «Sign in required» del hosting protegido de Rayfin antes de
+  «Continuar» y la cuenta de Microsoft; con la espera por defecto de MSAL (60 s) no daba tiempo. La app espera ahora
+  hasta 5 minutos, como la propia página de relay, explica esos pasos junto al botón y muestra el error si falla.
+
 ## 0.1.0
 
 Primera versión.

@@ -36,6 +36,9 @@ export class SignInRequiredError extends Error {
   }
 }
 
+/** En el portal la app vive en un iframe: el login pasa por popup-relay.html, que se abre fuera de él. */
+export const IN_PORTAL_IFRAME = window.top !== window.self;
+
 const msal = new PublicClientApplication({
   auth: {
     clientId: env.msalClientId || '00000000-0000-0000-0000-000000000000',
@@ -43,9 +46,14 @@ const msal = new PublicClientApplication({
     // Página en blanco: la renovación silenciosa en iframe no recarga la SPA (block_iframe_reload).
     redirectUri: `${window.location.origin}/blank.html`,
     // En el iframe del portal el almacenamiento está particionado: el popup devuelve la respuesta por esta página.
-    popupRelayUri: window.top !== window.self ? `${window.location.origin}/popup-relay.html` : undefined,
+    popupRelayUri: IN_PORTAL_IFRAME ? `${window.location.origin}/popup-relay.html` : undefined,
   },
   cache: { cacheLocation: 'sessionStorage' },
+  // En el iframe del portal la app espera la respuesta del relay popupBridgeTimeout (60 s por defecto). El primer login
+  // pasa además por el intersticial «Sign in required» del hosting protegido de Rayfin (la ventana se abre fuera del
+  // iframe, sin su sesión), la ventana del portal y Continuar: superaba los 60 s, daba timed_out y había que pulsar dos
+  // veces. Se iguala a la espera de la página de relay (DEFAULT_POPUP_RELAY_TIMEOUT_MS de msal-browser, 5 min).
+  system: { popupBridgeTimeout: 300_000 },
 });
 
 let ready: Promise<void> | null = null;

@@ -8,7 +8,7 @@ import type { ScenarioFile } from '../lib/service';
 import { useGate } from '../lib/store';
 import type { GateConfig } from '../lib/types';
 import { num } from '../lib/format';
-import { grantAccess, SignInRequiredError } from '../lib/msal';
+import { grantAccess, IN_PORTAL_IFRAME, SignInRequiredError } from '../lib/msal';
 
 const LEVELS = [1, 5, 6, 10, 20, 40, 60, 100, 150, 200, 300];
 const SKUS = ['F2', 'F4', 'F8', 'F16', 'F32', 'F64', 'F128', 'F256', 'F512', 'F1024', 'F2048'];
@@ -33,7 +33,7 @@ function useLoad<T>(fn: (() => Promise<T>) | null, initial: T, deps: unknown[]):
 }
 
 export function NewGate() {
-  const { service, account, signIn, addRun, go, missing } = useGate();
+  const { service, account, signIn, authError, addRun, go, missing } = useGate();
   const signedIn = !!account;
 
   const workspaces = useLoad<Workspace[]>(signedIn ? () => service.workspaces() : null, [], [signedIn]);
@@ -195,6 +195,15 @@ export function NewGate() {
                 <div><h2 id="b1">Modelo semántico</h2><p>El modelo en el stage de test, el que se promocionará si el veredicto lo permite.</p></div>
                 {!signedIn && <button className="btn btn--primary" onClick={signIn}>Iniciar sesión en Fabric</button>}
               </div>
+              {!signedIn && !env.demo && (IN_PORTAL_IFRAME || authError) && (
+                <div className="notice" style={{ marginBottom: 'var(--sp-4)' }} role="status">
+                  <Info aria-hidden />
+                  <div>
+                    {IN_PORTAL_IFRAME && <p>La primera vez se abre una ventana «Sign in required»: pulsa <b>Sign in</b> y, cuando vuelva, <b>Continuar</b> para elegir tu cuenta de Microsoft. Tienes 5 minutos.</p>}
+                    {authError && <p className="field__error">No se pudo iniciar sesión: {authError}</p>}
+                  </div>
+                </div>
+              )}
               <div className="grid-3">
                 <label className="field">
                   <span className="label">Workspace</span>
