@@ -45,6 +45,28 @@ describe('usuarios RLS', () => {
     expect(p.rls_users_file).toBe('/lakehouse/default/Files/PerfScenarios/Users/users.txt');
   });
 
+  it('envía UPN terminados en .txt como lista global', () => {
+    const p = pipelineParams({ ...form, rlsUsers: 'first@contoso.com, user@example.txt' });
+    expect(p.rls_users).toBe('first@contoso.com, user@example.txt');
+    expect(p.rls_users_file).toBe('');
+  });
+
+  it('envía un UPN terminado en .txt como lista del modelo', () => {
+    const p = pipelineParams({ ...form, rlsModelUsers: 'other@example.txt' });
+    expect(p.model_rls_settings).toEqual({ users: 'other@example.txt' });
+    expect(p.model_rls_source).toBe('list');
+  });
+
+  it('conserva las rutas de archivos que contienen @', () => {
+    const p = pipelineParams({ ...form, rlsUsers: '/lakehouse/default/Files/user@example.txt',
+      rlsModelUsers: 'Files/Users/user@example.txt' });
+    expect(p.rls_users_file).toBe('/lakehouse/default/Files/user@example.txt');
+    expect(p.model_rls_settings).toEqual({ users_file: '/lakehouse/default/Files/Users/user@example.txt' });
+    expect(p.model_rls_source).toBe('file');
+    expect(rlsParams('Users/name@domain/users.txt').rls_users_file).toBe('Users/name@domain/users.txt');
+    expect(rlsParams('users.txt').rls_users_file).toBe('users.txt');
+  });
+
   it('envía lista global y lista específica del modelo sin mezclarlas', () => {
     const p = pipelineParams({ ...form, rlsUsers: 'global@contoso.com', rlsModelUsers: 'modelo@contoso.com' });
     expect(p.rls_users).toBe('global@contoso.com');

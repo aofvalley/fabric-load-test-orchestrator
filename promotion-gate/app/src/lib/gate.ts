@@ -63,7 +63,8 @@ export function gateOverride(f: Pick<LaunchForm, 'targetLevel' | 'sku'>): Record
 /** Usuarios RLS: una lista de UPN va a `rls_users` y una ruta (/lakehouse/... o *.txt) a `rls_users_file`. */
 export function rlsParams(value: string): { rls_users: string; rls_users_file: string } {
   const v = value.trim();
-  const isFile = /^\/lakehouse\//i.test(v) || /^Files\//i.test(v) || /\.txt$/i.test(v);
+  const isFile = /^\/lakehouse\//i.test(v) || /^Files\//i.test(v)
+    || (/\.txt$/i.test(v) && (!v.includes('@') || /[\\/]/.test(v)));
   if (!isFile) return { rls_users: v, rls_users_file: '' };
   return { rls_users: '', rls_users_file: /^Files\//i.test(v) ? `/lakehouse/default/${v}` : v };
 }
