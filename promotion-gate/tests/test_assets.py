@@ -137,10 +137,15 @@ def test_no_real_ids_or_upns_in_versioned_files():
 
 
 def test_rls_follows_the_orchestrator_switches():
-    """3.3.0: rls_source (list|file|none) y rls_scope; el gate prueba un modelo, así que basta el ámbito global."""
     run = ACTS["Run_LoadTest"]["typeProperties"]["parameters"]
-    assert run["rls_scope"]["value"] == "global"
+    assert "model_rls_source" in run["rls_scope"]["value"]
+    assert "'per_model'" in run["rls_scope"]["value"] and "'global'" in run["rls_scope"]["value"]
     source = run["rls_source"]["value"]
+    assert "model_rls_source" in source
     assert "rls_users_file" in source and "'file'" in source and "'list'" in source and "'none'" in source
     assert run["rls_users_file"]["value"] == "@pipeline().parameters.rls_users_file"
     assert PIPE["properties"]["parameters"]["rls_users_file"] == {"type": "String", "defaultValue": ""}
+    models = run["models"]["value"]
+    assert "union(" in models and "pipeline().parameters.model_rls_settings" in models
+    assert PIPE["properties"]["parameters"]["model_rls_settings"]["defaultValue"] == {}
+    assert PIPE["properties"]["parameters"]["model_rls_source"]["defaultValue"] == ""

@@ -220,10 +220,17 @@ una subida o generar una sintética desde las medidas del modelo), carga y objet
 el plan de fases y su duración estimada. Por defecto completa la carga y Capacity Metrics aunque fallen las buenas
 prácticas; desmarcando la casilla se detiene antes y ahorra capacidad.
 
-**Usuarios RLS.** Si el modelo tiene seguridad por filas, el campo «Usuarios RLS» acepta UPN separados por comas o la ruta
-de un fichero del lakehouse del gate con un UPN por línea (por ejemplo `Files/PerfScenarios/Users/ventas.txt`). El gate lo
-pasa al orquestador como `rls_users` o `rls_users_file` con `rls_source` (`list`, `file` o `none`) y `rls_scope = global`: un
-gate prueba un solo modelo. Las identidades necesitan permiso de lectura y build sobre el modelo.
+**Usuarios RLS.** Introduce una lista global de UPN separados por comas o punto y coma, o la ruta de un archivo del
+lakehouse del gate con un UPN por línea (por ejemplo `Files/PerfScenarios/Users/global.txt`). Opcionalmente introduce
+una lista o archivo específico para el modelo seleccionado; prevalece sobre el global. Si queda vacío, se usa el global;
+si ambos están vacíos, no se suplanta ninguna identidad. El gate certifica un solo modelo por ejecución, y el valor
+específico se limpia al cambiar de modelo. Ambos valores deben ser del mismo tipo: el orquestador tiene un único
+`rls_source` por ejecución, de modo que no se puede combinar una lista con un archivo. Las identidades necesitan permiso
+de lectura y build. El archivo debe existir y contener usuarios válidos; el notebook comprueba su contenido al ejecutarse.
+
+El gate envía el global en `rls_users` o `rls_users_file`, y la excepción en `model_rls_settings` (`users` o `users_file`)
+con `model_rls_source` (`list` o `file`). El pipeline traduce esto a `rls_scope = per_model`; sin excepción conserva
+`global` y los parámetros anteriores siguen funcionando. Redespliega el pipeline del gate y la app para usar estos campos.
 
 **Run en curso.** Ruta de fases con los niveles de la rampa en vivo. Se puede cerrar la app: el gate sigue en Fabric.
 

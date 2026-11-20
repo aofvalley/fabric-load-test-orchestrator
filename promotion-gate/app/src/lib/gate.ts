@@ -45,6 +45,8 @@ export interface LaunchForm {
   rampUpSec: number;
   /** UPN separados por comas o la ruta de un fichero del lakehouse con un UPN por línea. */
   rlsUsers: string;
+  /** Excepción para el modelo seleccionado; vacía usa la configuración global. */
+  rlsModelUsers?: string;
   /** false = si la revisión del modelo falla, el pipeline no gasta capacidad en el test de carga. */
   fullRun: boolean;
   capacityId?: string;
@@ -63,11 +65,27 @@ export function rlsParams(value: string): { rls_users: string; rls_users_file: s
   const v = value.trim();
   const isFile = /^\/lakehouse\//i.test(v) || /^Files\//i.test(v) || /\.txt$/i.test(v);
   if (!isFile) return { rls_users: v, rls_users_file: '' };
-  return { rls_users: '', rls_users_file: v.startsWith('Files/') ? `/lakehouse/default/${v}` : v };
+  return { rls_users: '', rls_users_file: /^Files\//i.test(v) ? `/lakehouse/default/${v}` : v };
+}
+
+export function rlsProblem(globalValue: string, modelValue: string): string | null {
+  const global = rlsParams(globalValue);
+  const model = rlsParams(modelValue);
+  if ((global.rls_users && model.rls_users_file) || (global.rls_users_file && model.rls_users))
+    return 'El origen RLS debe ser el mismo para el valor global y el del modelo: listas o archivos.';
+  for (const value of [global.rls_users, model.rls_users]) {
+    const tokens = value.split(/\r?\n/).flatMap((line) => line.replace(/(^|\s)#.*$/, '').split(/[,;]/));
+    if (tokens.some((token) => token.trim() && !/^[^@\s]+@[^@\s]+$/.test(token.trim())))
+      return 'Introduce UPN válidos (usuario@dominio), separados por comas o punto y coma.';
+  }
+  return null;
 }
 
 /** Parámetros de PL_PromotionGate (mismos nombres que pipelines/PL_PromotionGate.json). */
 export function pipelineParams(f: LaunchForm): Record<string, unknown> {
+  const modelRls = rlsParams(f.rlsModelUsers ?? '');
+  const problem = rlsProblem(f.rlsUsers, f.rlsModelUsers ?? '');
+  if (problem) throw new Error(problem);
   return {
     run_id: f.runId,
     dataset: f.datasetName,
@@ -80,6 +98,9 @@ export function pipelineParams(f: LaunchForm): Record<string, unknown> {
     think_time_scale: f.thinkTimeScale,
     ramp_up_sec: f.rampUpSec,
     ...rlsParams(f.rlsUsers),
+    model_rls_settings: modelRls.rls_users_file ? { users_file: modelRls.rls_users_file }
+      : modelRls.rls_users ? { users: modelRls.rls_users } : {},
+    model_rls_source: modelRls.rls_users_file ? 'file' : modelRls.rls_users ? 'list' : '',
     stop_on_review_fail: !f.fullRun,
     capacity_metrics_workspace: f.capacityMetricsWorkspace,
     capacity_id: f.capacityId ?? '',

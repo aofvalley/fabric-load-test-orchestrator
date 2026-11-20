@@ -107,7 +107,7 @@
                 "waitOnCompletion": true,
                 "parameters": {
                   "models": {
-                    "value": "@json(concat('[{\"model_key\":\"', pipeline().parameters.model_key, '\",\"dataset\":\"', pipeline().parameters.dataset, '\",\"workspace\":\"', coalesce(json(activity('NB_Gate_ModelReview').output.result.exitValue).workspace_name, pipeline().parameters.model_workspace), '\",\"queryfile\":\"', pipeline().parameters.queryfile, '\"}]'))",
+                    "value": "@array(union(json(concat('{\"model_key\":\"', pipeline().parameters.model_key, '\",\"dataset\":\"', pipeline().parameters.dataset, '\",\"workspace\":\"', coalesce(json(activity('NB_Gate_ModelReview').output.result.exitValue).workspace_name, pipeline().parameters.model_workspace), '\",\"queryfile\":\"', pipeline().parameters.queryfile, '\"}')), pipeline().parameters.model_rls_settings))",
                     "type": "Expression"
                   },
                   "test_name_prefix": {
@@ -139,11 +139,11 @@
                     "type": "Expression"
                   },
                   "rls_source": {
-                    "value": "@if(not(empty(pipeline().parameters.rls_users_file)), 'file', if(not(empty(pipeline().parameters.rls_users)), 'list', 'none'))",
+                    "value": "@if(not(empty(pipeline().parameters.model_rls_source)), pipeline().parameters.model_rls_source, if(not(empty(pipeline().parameters.rls_users_file)), 'file', if(not(empty(pipeline().parameters.rls_users)), 'list', 'none')))",
                     "type": "Expression"
                   },
                   "rls_scope": {
-                    "value": "global",
+                    "value": "@if(empty(pipeline().parameters.model_rls_source), 'global', 'per_model')",
                     "type": "Expression"
                   },
                   "rls_users_file": {
@@ -440,6 +440,14 @@
         "defaultValue": ""
       },
       "rls_users_file": {
+        "type": "String",
+        "defaultValue": ""
+      },
+      "model_rls_settings": {
+        "type": "Object",
+        "defaultValue": {}
+      },
+      "model_rls_source": {
         "type": "String",
         "defaultValue": ""
       },

@@ -2,7 +2,7 @@ import { ExternalLink, FileJson, FlaskConical, Info, Rocket, TriangleAlert, Uplo
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { env } from '../lib/env';
 import type { Item, Report, Workspace } from '../lib/fabric';
-import { makeRunId, modelKey, rampProblems, type LaunchForm } from '../lib/gate';
+import { makeRunId, modelKey, rampProblems, rlsProblem, type LaunchForm } from '../lib/gate';
 import { inspectScenario, type ScenarioSummary } from '../lib/scenario';
 import type { ScenarioFile } from '../lib/service';
 import { useGate } from '../lib/store';
@@ -75,6 +75,7 @@ export function NewGate() {
   const [iterations, setIterations] = useState(1);
   const [rampUp, setRampUp] = useState(30);
   const [rls, setRls] = useState('');
+  const [modelRls, setModelRls] = useState('');
   const [fullRun, setFullRun] = useState(true);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export function NewGate() {
 
   useEffect(() => { setModelId(''); setReportId(''); }, [wsId]);
   useEffect(() => { setReportId(modelReports.length === 1 ? modelReports[0].id : ''); setSynthetic(null); }, [modelId, modelReports.length]);
+  useEffect(() => { setModelRls(''); }, [modelId]);
 
   const onFile = async (f: File | undefined) => {
     setUploadError(null);
@@ -116,7 +118,8 @@ export function NewGate() {
   const scenarioReady = source === 'upload' ? !!upload : source === 'existing' ? !!existingPath : !!synthetic;
   const scenarioSummary = source === 'upload' ? upload?.summary : source === 'synthetic' ? synthetic?.summary : undefined;
   const problems = rampProblems(ramp, target);
-  const blocking = ramp.length === 0 || ramp.some((l) => l > 300);
+  const rlsError = rlsProblem(rls, modelRls);
+  const blocking = ramp.length === 0 || ramp.some((l) => l > 300) || !!rlsError;
   const canLaunch = signedIn && !!model && !!ws && scenarioReady && !blocking && !launching && missing.length === 0;
 
   const plan = useMemo(() => {
@@ -148,7 +151,7 @@ export function NewGate() {
       const form: LaunchForm = {
         runId, datasetName: model.displayName, workspaceName: ws.displayName, modelKey: key, queryfile,
         rampLevels: ramp, targetLevel: target, sku, iterations, thinkTimes, thinkTimeScale: 1, rampUpSec: rampUp,
-        rlsUsers: rls, fullRun, capacityId, capacityMetricsWorkspace: env.capacityMetricsWorkspace, toolingWorkspaceId: env.gateWorkspaceId,
+        rlsUsers: rls, rlsModelUsers: modelRls, fullRun, capacityId, capacityMetricsWorkspace: env.capacityMetricsWorkspace, toolingWorkspaceId: env.gateWorkspaceId,
         requestedBy: account.username,
       };
       const startedAt = new Date().toISOString();
@@ -329,11 +332,19 @@ export function NewGate() {
                   <label className="switch" style={{ marginTop: 'var(--sp-3)' }}><input type="checkbox" checked={fullRun} onChange={(e) => setFullRun(e.target.checked)} />Completar carga y Capacity Metrics aunque fallen las buenas prácticas</label>
                   <span className="field__hint">{fullRun ? 'El certificado incluirá todas las fases aunque el modelo ya no sea apto.' : 'Si las buenas prácticas fallan, el gate se detiene y ahorra capacidad.'}</span>
                 </div>
-                <label className="field">
-                  <span className="label">Usuarios RLS (opcional)</span>
-                  <input className="input" placeholder="usuario1@empresa.com, usuario2@empresa.com  o  Files/PerfScenarios/Users/users.txt" value={rls} onChange={(e) => setRls(e.target.value)} />
-                  <span className="field__hint">UPN separados por comas, o la ruta de un fichero del lakehouse del gate con un UPN por línea. Se reparten entre los usuarios virtuales y necesitan permiso de lectura y build.</span>
-                </label>
+                <div className="field">
+                  <label className="field">
+                    <span className="label">Usuarios RLS globales (opcional)</span>
+                    <input className="input" placeholder="usuario@empresa.com o Files/PerfScenarios/Users/users.txt" value={rls} onChange={(e) => setRls(e.target.value)} aria-invalid={!!rlsError} aria-describedby={rlsError ? 'rls-error' : undefined} />
+                    <span className="field__hint">Lista de UPN o ruta de archivo del lakehouse del gate, con un UPN por línea.</span>
+                  </label>
+                  <label className="field" style={{ marginTop: 'var(--sp-3)' }}>
+                    <span className="label">Usuarios RLS de este modelo (opcional)</span>
+                    <input className="input" placeholder="Lista o archivo específico del modelo" value={modelRls} onChange={(e) => setModelRls(e.target.value)} aria-invalid={!!rlsError} aria-describedby={rlsError ? 'rls-error' : undefined} />
+                    <span className="field__hint">Si se deja vacío, se usa el valor global. Ambos valores deben ser listas o ambos archivos. Los usuarios necesitan lectura y build.</span>
+                  </label>
+                  {rlsError && <span id="rls-error" role="alert" className="field__hint">{rlsError}</span>}
+                </div>
               </div>
 
               <div className="notice" style={{ marginTop: 'var(--sp-5)' }}>

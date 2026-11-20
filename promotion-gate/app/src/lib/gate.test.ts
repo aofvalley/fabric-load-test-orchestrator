@@ -44,6 +44,32 @@ describe('usuarios RLS', () => {
     expect(p.rls_users).toBe('');
     expect(p.rls_users_file).toBe('/lakehouse/default/Files/PerfScenarios/Users/users.txt');
   });
+
+  it('envía lista global y lista específica del modelo sin mezclarlas', () => {
+    const p = pipelineParams({ ...form, rlsUsers: 'global@contoso.com', rlsModelUsers: 'modelo@contoso.com' });
+    expect(p.rls_users).toBe('global@contoso.com');
+    expect(p.rls_users_file).toBe('');
+    expect(p.model_rls_settings).toEqual({ users: 'modelo@contoso.com' });
+    expect(p.model_rls_source).toBe('list');
+  });
+
+  it('envía archivos global y específico o solo el específico', () => {
+    const p = pipelineParams({ ...form, rlsUsers: 'Files/Users/global.txt', rlsModelUsers: 'Files/Users/modelo.txt' });
+    expect(p.rls_users_file).toBe('/lakehouse/default/Files/Users/global.txt');
+    expect(p.model_rls_settings).toEqual({ users_file: '/lakehouse/default/Files/Users/modelo.txt' });
+    expect(p.model_rls_source).toBe('file');
+    expect(pipelineParams({ ...form, rlsModelUsers: 'Files/Users/modelo.txt' }).model_rls_settings)
+      .toEqual({ users_file: '/lakehouse/default/Files/Users/modelo.txt' });
+  });
+
+  it('rechaza mezclar archivos y listas porque el origen es único por ejecución', () => {
+    expect(() => pipelineParams({ ...form, rlsUsers: 'global@contoso.com', rlsModelUsers: 'Files/Users/modelo.txt' })).toThrow(/origen/i);
+    expect(() => pipelineParams({ ...form, rlsUsers: 'Files/Users/global.txt', rlsModelUsers: 'modelo@contoso.com' })).toThrow(/origen/i);
+  });
+
+  it('rechaza UPN no válidos antes de lanzar', () => {
+    expect(() => pipelineParams({ ...form, rlsModelUsers: 'no-es-un-upn' })).toThrow(/UPN/i);
+  });
 });
 
 describe('rampa', () => {
